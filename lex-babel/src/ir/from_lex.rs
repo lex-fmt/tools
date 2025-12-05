@@ -549,9 +549,10 @@ mod tests {
     #[test]
     fn test_blank_lines_filtered() {
         let para = ContentItem::Paragraph(LexParagraph::from_line("Test".to_string()));
-        let blank = ContentItem::BlankLineGroup(
-            lex_core::lex::ast::elements::BlankLineGroup::new(1, Vec::new()),
-        );
+        let blank = ContentItem::BlankLineGroup(lex_core::lex::ast::elements::BlankLineGroup::new(
+            1,
+            Vec::new(),
+        ));
 
         let children = convert_children(&[para, blank], 1);
 
