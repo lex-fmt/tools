@@ -876,7 +876,7 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "lex-babel"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "comrak",
  "html5ever",
@@ -894,7 +894,7 @@ dependencies = [
 
 [[package]]
 name = "lex-cli"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -909,7 +909,7 @@ dependencies = [
 
 [[package]]
 name = "lex-config"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "config",
  "lex-babel",
@@ -919,7 +919,8 @@ dependencies = [
 [[package]]
 name = "lex-core"
 version = "0.2.1"
-source = "git+https://github.com/lex-fmt/core?branch=repo-split#912f277408586ae253e724263d3be4b726d5e431"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97d19093ccd24a3b15b7ddd7a24e3580478242cd1887f254f41ef14a700b3b22"
 dependencies = [
  "logos",
  "once_cell",

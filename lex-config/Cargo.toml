@@ -1,6 +1,6 @@
 [package]
 name = "lex-config"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 license = "MIT"
 authors = ["lex contributors"]
@@ -12,4 +12,4 @@ categories = ["config"]
 [dependencies]
 config = { workspace = true }
 serde = { workspace = true }
-lex-babel = { path = "../lex-babel" }
+lex-babel = { version = "0.2", path = "../lex-babel" }
