@@ -1,0 +1,20 @@
+[workspace]
+members = [
+    "lex-babel",
+    "lex-config",
+    "lex-cli",
+]
+resolver = "2"
+
+[workspace.dependencies]
+# Use git until published on crates.io
+lex-core = { git = "https://github.com/lex-fmt/core", branch = "repo-split" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+clap = { version = "4.4", features = ["derive"] }
+config = "0.14"
+insta = "1.39"
+
+[profile.dist]
+inherits = "release"
+lto = "thin"
