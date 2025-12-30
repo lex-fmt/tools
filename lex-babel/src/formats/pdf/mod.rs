@@ -168,11 +168,11 @@ fn render_html_to_pdf(html: &str, profile: PdfSizeProfile) -> Result<Vec<u8>, Fo
     };
 
     let status = Command::new(&chrome)
-        .arg("--headless")
+        .arg("--headless=new")
         .arg("--disable-gpu")
         .arg("--no-sandbox")
         .arg("--disable-dev-shm-usage")
-        .arg("--print-to-pdf-no-header")
+        .arg("--no-pdf-header-footer")
         .arg(pdf_arg)
         .arg(window_arg)
         .arg(file_url.as_str())
