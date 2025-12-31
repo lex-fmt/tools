@@ -138,6 +138,7 @@ impl FormatRegistry {
         registry.register(crate::formats::pdf::PdfFormat::default());
         registry.register(crate::formats::png::PngFormat::default());
         registry.register(crate::formats::markdown::MarkdownFormat);
+        registry.register(crate::formats::rfc_xml::RfcXmlFormat);
         registry.register(crate::formats::tag::TagFormat);
         registry.register(crate::formats::treeviz::TreevizFormat);
         registry.register(crate::formats::linetreeviz::LinetreevizFormat);

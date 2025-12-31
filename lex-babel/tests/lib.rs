@@ -11,3 +11,6 @@ mod markdown;
 
 #[cfg(test)]
 mod pdf;
+
+#[cfg(test)]
+mod rfc_xml;
