@@ -137,38 +137,38 @@ mod tests {
     #[test]
     fn test_normalize_footnotes() {
         let original = "Title\n\n    Content\n\nNotes\n\n    1. Note One\n\n    2. Note Two\n";
-        // This parses as Session("Notes") -> [Session("1. Note One"), Session("2. Note Two")] 
+        // This parses as Session("Notes") -> [Session("1. Note One"), Session("2. Note Two")]
         // normally, but we want it to become a List.
         let formatted = format_lex_source(original).unwrap();
 
         // Verification
-        use lex_core::lex::transforms::standard::STRING_TO_AST;
         use lex_core::lex::ast::{ContentItem, Session};
-        
+        use lex_core::lex::transforms::standard::STRING_TO_AST;
+
         let doc = STRING_TO_AST.run(formatted.clone()).unwrap();
         let last_session = doc.root.children.last().unwrap();
         if let ContentItem::Session(s) = last_session {
-             assert_eq!(s.title.as_string().trim(), "Notes");
-             assert_eq!(s.children.len(), 1);
-             if let ContentItem::List(l) = &s.children[0] {
-                 assert_eq!(l.items.len(), 2);
-                 if let ContentItem::ListItem(item) = &l.items[0] {
-                     assert_eq!(item.marker().trim(), "1.");
-                     assert_eq!(item.text().trim(), "Note One");
-                 } else {
-                     panic!("Expected ListItem, found {:?}", l.items[0]);
-                 }
-             } else {
-                 panic!("Expected List, found {:?}", s.children[0]);
-             }
+            assert_eq!(s.title.as_string().trim(), "Notes");
+            assert_eq!(s.children.len(), 1);
+            if let ContentItem::List(l) = &s.children[0] {
+                assert_eq!(l.items.len(), 2);
+                if let ContentItem::ListItem(item) = &l.items[0] {
+                    assert_eq!(item.marker().trim(), "1.");
+                    assert_eq!(item.text().trim(), "Note One");
+                } else {
+                    panic!("Expected ListItem, found {:?}", l.items[0]);
+                }
+            } else {
+                panic!("Expected List, found {:?}", s.children[0]);
+            }
         } else {
             panic!("Expected Session");
         }
     }
 }
 
-use lex_core::lex::ast::{ContentItem, List, ListItem, Session};
 use lex_core::lex::ast::elements::typed_content::ContentElement;
+use lex_core::lex::ast::{ContentItem, List, ListItem, Session};
 
 /// Normalizes footnote definitions in a document from session-based format to list-based format.
 ///
@@ -181,9 +181,10 @@ use lex_core::lex::ast::elements::typed_content::ContentElement;
 fn normalize_footnotes(doc: &mut Document) {
     if let Some(ContentItem::Session(last_session)) = doc.root.children.as_mut_vec().last_mut() {
         let title = last_session.title.as_string();
-        if title.trim().eq_ignore_ascii_case("Notes") 
-           || title.trim().eq_ignore_ascii_case("Footnotes") {
-             convert_session_notes_to_list(last_session);
+        if title.trim().eq_ignore_ascii_case("Notes")
+            || title.trim().eq_ignore_ascii_case("Footnotes")
+        {
+            convert_session_notes_to_list(last_session);
         }
     }
 }
@@ -195,12 +196,10 @@ fn normalize_footnotes(doc: &mut Document) {
 /// - **Existing lists**: Items are merged into the output list
 /// - **Blank lines**: Removed to compact the output
 fn convert_session_notes_to_list(session: &mut Session) {
-    let has_legacy_content = session.children.iter().any(|c| {
-        match c {
-            ContentItem::Session(s) => split_numbered_title(&s.title.as_string()).is_some(),
-            ContentItem::List(_) | ContentItem::BlankLineGroup(_) => true,
-            _ => false,
-        }
+    let has_legacy_content = session.children.iter().any(|c| match c {
+        ContentItem::Session(s) => split_numbered_title(&s.title.as_string()).is_some(),
+        ContentItem::List(_) | ContentItem::BlankLineGroup(_) => true,
+        _ => false,
     });
 
     if !has_legacy_content {
@@ -215,60 +214,62 @@ fn convert_session_notes_to_list(session: &mut Session) {
     let old_children = std::mem::take(children_vec);
 
     for mut child in old_children {
-         // handle Session -> ListItem
-         let mut handled = false;
-         
-         if let ContentItem::Session(inner_session) = &child {
-             let title = inner_session.title.as_string();
-             if let Some((number_part, content_part)) = split_numbered_title(&title) {
-                 handled = true;
-                 
-                 let mut children_elements = Vec::new();
-                 for inner_child in inner_session.children.iter().cloned() {
-                      if let Ok(el) = ContentElement::try_from(inner_child) {
-                          children_elements.push(el);
-                      }
-                 }
-                 
-                 let list_item = ListItem::with_content(
-                     number_part.to_string(),
-                     content_part.trim().to_string(),
-                     children_elements
-                 );
-                 current_list_items.push(list_item);
-             }
-         } else if let ContentItem::List(l) = &mut child {
-             // Merge list items
-             handled = true;
-             // We need to extract items. ListContainer wraps generic content but typically ListContent::ListItem.
-             // We'll iterate and filter/map.
-             let items = std::mem::take(l.items.as_mut_vec());
-             for item in items {
-                 if let ContentItem::ListItem(li) = item {
-                     current_list_items.push(li);
-                 }
-                 // If it's not a ListItem (e.g. comment), we drop it for now as per refactoring goal "Clean List".
-             }
-         } else if let ContentItem::BlankLineGroup(_) = child {
-             // Skip blank lines in Notes session to compact them
-             handled = true;
-         }
+        // handle Session -> ListItem
+        let mut handled = false;
 
-         if !handled {
-             // If we encounter something else (e.g. Paragraph), we assume it breaks the list or is a preamble.
-             // Flush current items first.
-             if !current_list_items.is_empty() {
-                 new_children.push(ContentItem::List(List::new(std::mem::take(&mut current_list_items))));
-             }
-             new_children.push(child);
-         }
+        if let ContentItem::Session(inner_session) = &child {
+            let title = inner_session.title.as_string();
+            if let Some((number_part, content_part)) = split_numbered_title(&title) {
+                handled = true;
+
+                let mut children_elements = Vec::new();
+                for inner_child in inner_session.children.iter().cloned() {
+                    if let Ok(el) = ContentElement::try_from(inner_child) {
+                        children_elements.push(el);
+                    }
+                }
+
+                let list_item = ListItem::with_content(
+                    number_part.to_string(),
+                    content_part.trim().to_string(),
+                    children_elements,
+                );
+                current_list_items.push(list_item);
+            }
+        } else if let ContentItem::List(l) = &mut child {
+            // Merge list items
+            handled = true;
+            // We need to extract items. ListContainer wraps generic content but typically ListContent::ListItem.
+            // We'll iterate and filter/map.
+            let items = std::mem::take(l.items.as_mut_vec());
+            for item in items {
+                if let ContentItem::ListItem(li) = item {
+                    current_list_items.push(li);
+                }
+                // If it's not a ListItem (e.g. comment), we drop it for now as per refactoring goal "Clean List".
+            }
+        } else if let ContentItem::BlankLineGroup(_) = child {
+            // Skip blank lines in Notes session to compact them
+            handled = true;
+        }
+
+        if !handled {
+            // If we encounter something else (e.g. Paragraph), we assume it breaks the list or is a preamble.
+            // Flush current items first.
+            if !current_list_items.is_empty() {
+                new_children.push(ContentItem::List(List::new(std::mem::take(
+                    &mut current_list_items,
+                ))));
+            }
+            new_children.push(child);
+        }
     }
-    
+
     // Flush remaining
     if !current_list_items.is_empty() {
-         new_children.push(ContentItem::List(List::new(current_list_items)));
+        new_children.push(ContentItem::List(List::new(current_list_items)));
     }
-    
+
     *session.children.as_mut_vec() = new_children;
 }
 
