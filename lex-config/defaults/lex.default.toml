@@ -41,3 +41,4 @@ size = "lexed"
 
 [convert.html]
 theme = "default"
+# custom_css = "/path/to/custom.css"  # Optional: appends to the baseline CSS
