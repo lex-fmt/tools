@@ -7,7 +7,8 @@
 use crate::format::Format;
 use crate::formats::lex::formatting_rules::FormattingRules;
 use crate::formats::lex::LexFormat;
-use lex_core::lex::ast::Document;
+use lex_core::lex::ast::elements::typed_content::ContentElement;
+use lex_core::lex::ast::{ContentItem, Document, List, ListItem, Session};
 
 /// Serialize a Document to Lex format with default formatting rules
 ///
@@ -80,96 +81,6 @@ pub fn format_lex_source(source: &str) -> Result<String, String> {
     serialize_to_lex(&doc)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use lex_core::lex::ast::{ContentItem, Paragraph};
-
-    #[test]
-    fn test_serialize_to_lex() {
-        let doc = Document::with_content(vec![ContentItem::Paragraph(Paragraph::from_line(
-            "Test".to_string(),
-        ))]);
-
-        let result = serialize_to_lex(&doc);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "Test\n");
-    }
-
-    #[test]
-    fn test_serialize_with_custom_rules() {
-        let doc = Document::with_content(vec![ContentItem::Paragraph(Paragraph::from_line(
-            "Test".to_string(),
-        ))]);
-
-        let rules = FormattingRules {
-            indent_string: "  ".to_string(),
-            ..Default::default()
-        };
-
-        let result = serialize_to_lex_with_rules(&doc, rules);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_format_lex_source() {
-        let source = "Hello world\n";
-        let formatted = format_lex_source(source);
-        assert!(formatted.is_ok());
-        assert_eq!(formatted.unwrap(), "Hello world\n");
-    }
-
-    #[test]
-    fn test_round_trip_simple() {
-        let original = "Introduction\n\n    This is a session.\n";
-        let formatted = format_lex_source(original).unwrap();
-
-        // Parse both and compare (structural equivalence)
-        use lex_core::lex::transforms::standard::STRING_TO_AST;
-
-        let doc1 = STRING_TO_AST.run(original.to_string()).unwrap();
-        let doc2 = STRING_TO_AST.run(formatted.clone()).unwrap();
-
-        // Both should parse successfully
-        assert_eq!(doc1.root.children.len(), doc2.root.children.len());
-    }
-
-    #[test]
-    fn test_normalize_footnotes() {
-        let original = "Title\n\n    Content\n\nNotes\n\n    1. Note One\n\n    2. Note Two\n";
-        // This parses as Session("Notes") -> [Session("1. Note One"), Session("2. Note Two")]
-        // normally, but we want it to become a List.
-        let formatted = format_lex_source(original).unwrap();
-
-        // Verification
-        use lex_core::lex::ast::{ContentItem, Session};
-        use lex_core::lex::transforms::standard::STRING_TO_AST;
-
-        let doc = STRING_TO_AST.run(formatted.clone()).unwrap();
-        let last_session = doc.root.children.last().unwrap();
-        if let ContentItem::Session(s) = last_session {
-            assert_eq!(s.title.as_string().trim(), "Notes");
-            assert_eq!(s.children.len(), 1);
-            if let ContentItem::List(l) = &s.children[0] {
-                assert_eq!(l.items.len(), 2);
-                if let ContentItem::ListItem(item) = &l.items[0] {
-                    assert_eq!(item.marker().trim(), "1.");
-                    assert_eq!(item.text().trim(), "Note One");
-                } else {
-                    panic!("Expected ListItem, found {:?}", l.items[0]);
-                }
-            } else {
-                panic!("Expected List, found {:?}", s.children[0]);
-            }
-        } else {
-            panic!("Expected Session");
-        }
-    }
-}
-
-use lex_core::lex::ast::elements::typed_content::ContentElement;
-use lex_core::lex::ast::{ContentItem, List, ListItem, Session};
-
 /// Normalizes footnote definitions in a document from session-based format to list-based format.
 ///
 /// Lex supports two formats for footnotes:
@@ -197,7 +108,7 @@ fn normalize_footnotes(doc: &mut Document) {
 /// - **Blank lines**: Removed to compact the output
 fn convert_session_notes_to_list(session: &mut Session) {
     let has_legacy_content = session.children.iter().any(|c| match c {
-        ContentItem::Session(s) => split_numbered_title(&s.title.as_string()).is_some(),
+        ContentItem::Session(s) => split_numbered_title(s.title.as_string()).is_some(),
         ContentItem::List(_) | ContentItem::BlankLineGroup(_) => true,
         _ => false,
     });
@@ -219,7 +130,7 @@ fn convert_session_notes_to_list(session: &mut Session) {
 
         if let ContentItem::Session(inner_session) = &child {
             let title = inner_session.title.as_string();
-            if let Some((number_part, content_part)) = split_numbered_title(&title) {
+            if let Some((number_part, content_part)) = split_numbered_title(title) {
                 handled = true;
 
                 let mut children_elements = Vec::new();
@@ -285,4 +196,90 @@ fn split_numbered_title(title: &str) -> Option<(&str, &str)> {
         return Some((num, rest));
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lex_core::lex::ast::Paragraph;
+
+    #[test]
+    fn test_serialize_to_lex() {
+        let doc = Document::with_content(vec![ContentItem::Paragraph(Paragraph::from_line(
+            "Test".to_string(),
+        ))]);
+
+        let result = serialize_to_lex(&doc);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "Test\n");
+    }
+
+    #[test]
+    fn test_serialize_with_custom_rules() {
+        let doc = Document::with_content(vec![ContentItem::Paragraph(Paragraph::from_line(
+            "Test".to_string(),
+        ))]);
+
+        let rules = FormattingRules {
+            indent_string: "  ".to_string(),
+            ..Default::default()
+        };
+
+        let result = serialize_to_lex_with_rules(&doc, rules);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_format_lex_source() {
+        let source = "Hello world\n";
+        let formatted = format_lex_source(source);
+        assert!(formatted.is_ok());
+        assert_eq!(formatted.unwrap(), "Hello world\n");
+    }
+
+    #[test]
+    fn test_round_trip_simple() {
+        let original = "Introduction\n\n    This is a session.\n";
+        let formatted = format_lex_source(original).unwrap();
+
+        // Parse both and compare (structural equivalence)
+        use lex_core::lex::transforms::standard::STRING_TO_AST;
+
+        let doc1 = STRING_TO_AST.run(original.to_string()).unwrap();
+        let doc2 = STRING_TO_AST.run(formatted.clone()).unwrap();
+
+        // Both should parse successfully
+        assert_eq!(doc1.root.children.len(), doc2.root.children.len());
+    }
+
+    #[test]
+    fn test_normalize_footnotes() {
+        let original = "Title\n\n    Content\n\nNotes\n\n    1. Note One\n\n    2. Note Two\n";
+        // This parses as Session("Notes") -> [Session("1. Note One"), Session("2. Note Two")]
+        // normally, but we want it to become a List.
+        let formatted = format_lex_source(original).unwrap();
+
+        // Verification
+        use lex_core::lex::transforms::standard::STRING_TO_AST;
+
+        let doc = STRING_TO_AST.run(formatted.clone()).unwrap();
+        let last_session = doc.root.children.last().unwrap();
+        if let ContentItem::Session(s) = last_session {
+            assert_eq!(s.title.as_string().trim(), "Notes");
+            assert_eq!(s.children.len(), 1);
+            if let ContentItem::List(l) = &s.children[0] {
+                assert_eq!(l.items.len(), 2);
+                if let ContentItem::ListItem(item) = &l.items[0] {
+                    assert_eq!(item.marker().trim(), "1.");
+                    assert_eq!(item.text().trim(), "Note One");
+                } else {
+                    panic!("Expected ListItem, found {:?}", l.items[0]);
+                }
+            } else {
+                panic!("Expected List, found {:?}", s.children[0]);
+            }
+        } else {
+            panic!("Expected Session");
+        }
+    }
 }
