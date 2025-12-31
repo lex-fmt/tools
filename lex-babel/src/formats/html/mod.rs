@@ -113,6 +113,7 @@ mod serializer;
 use crate::error::FormatError;
 use crate::format::Format;
 use lex_core::lex::ast::Document;
+use std::fs;
 
 pub use serializer::HtmlOptions;
 
@@ -217,6 +218,14 @@ impl Format for HtmlFormat {
         // Handle custom CSS option (expects CSS content, not path)
         if let Some(css_content) = options.get("custom_css") {
             html_options = html_options.with_custom_css(css_content.clone());
+        } else if let Some(css_path) = options.get("css-path").or_else(|| options.get("css_path")) {
+            let css = fs::read_to_string(css_path).map_err(|err| {
+                FormatError::SerializationError(format!(
+                    "Failed to read CSS at '{}': {}",
+                    css_path, err
+                ))
+            })?;
+            html_options = html_options.with_custom_css(css);
         }
 
         serializer::serialize_to_html_with_options(doc, html_options)
@@ -227,6 +236,11 @@ impl Format for HtmlFormat {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::format::SerializedDocument;
+    use lex_core::lex::ast::Document;
+    use std::collections::HashMap;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_get_default_css_returns_baseline() {
@@ -245,5 +259,48 @@ mod tests {
         let css = get_default_css();
         // Verify it's the actual include_str content by checking for CSS custom properties
         assert!(css.contains("--lex-"));
+    }
+
+    #[test]
+    fn test_css_path_option_loads_file() {
+        let mut temp = NamedTempFile::new().expect("failed to create temp file");
+        writeln!(temp, ".from-path {{ color: blue; }}").expect("failed to write temp css");
+
+        let doc = Document::new();
+        let format = HtmlFormat::default();
+        let mut options = HashMap::new();
+        options.insert(
+            "css-path".to_string(),
+            temp.path().to_string_lossy().to_string(),
+        );
+
+        let html = format
+            .serialize_with_options(&doc, &options)
+            .expect("html export should succeed");
+
+        let SerializedDocument::Text(content) = html else {
+            panic!("expected text html output");
+        };
+        assert!(content.contains(".from-path { color: blue; }"));
+    }
+
+    #[test]
+    fn test_css_path_option_errors_on_missing_file() {
+        let doc = Document::new();
+        let format = HtmlFormat::default();
+        let mut options = HashMap::new();
+        options.insert("css-path".to_string(), "/no/such/file.css".to_string());
+
+        let err = match format.serialize_with_options(&doc, &options) {
+            Ok(_) => panic!("expected css-path lookup to fail"),
+            Err(err) => err,
+        };
+
+        match err {
+            FormatError::SerializationError(msg) => {
+                assert!(msg.contains("/no/such/file.css"));
+            }
+            other => panic!("expected serialization error, got {other:?}"),
+        }
     }
 }

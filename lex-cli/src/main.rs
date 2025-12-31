@@ -41,6 +41,7 @@ use std::fs;
 /// Supports both:
 /// - `--extra-<key> <value>` (explicit value)
 /// - `--extra-<key>` (boolean flag, defaults to "true")
+/// - `--extras-<key>` (alias for `--extra-<key>`)
 fn parse_extra_args(args: &[String]) -> (Vec<String>, HashMap<String, String>) {
     let mut cleaned_args = Vec::new();
     let mut extra_params = HashMap::new();
@@ -49,7 +50,13 @@ fn parse_extra_args(args: &[String]) -> (Vec<String>, HashMap<String, String>) {
     while i < args.len() {
         let arg = &args[i];
 
-        if let Some(key) = arg.strip_prefix("--extra-") {
+        let key_opt = if let Some(key) = arg.strip_prefix("--extra-") {
+            Some(key)
+        } else {
+            arg.strip_prefix("--extras-")
+        };
+
+        if let Some(key) = key_opt {
             // Found an extra-* argument
             // Check if the next arg is a value or another flag/end
             let has_value = if i + 1 < args.len() {
@@ -474,13 +481,8 @@ fn handle_convert_command(
             format_options = pdf_params_from_config(config);
         } else if to == "html" {
             format_options.insert("theme".to_string(), config.convert.html.theme.clone());
-            // Load custom CSS file if configured
             if let Some(css_path) = &config.convert.html.custom_css {
-                let css_content = fs::read_to_string(css_path).unwrap_or_else(|e| {
-                    eprintln!("Error reading CSS file '{css_path}': {e}");
-                    std::process::exit(1);
-                });
-                format_options.insert("custom_css".to_string(), css_content);
+                format_options.insert("css-path".to_string(), css_path.clone());
             }
         }
         for (key, value) in extra_params {
@@ -652,7 +654,7 @@ fn apply_config_overrides(config: &mut LexConfig, extra_params: &mut HashMap<Str
         config.convert.html.theme = raw;
     }
 
-    if let Some(path) = take_override(extra_params, &["css"]) {
+    if let Some(path) = take_override(extra_params, &["css", "css-path"]) {
         config.convert.html.custom_css = Some(path);
     }
 }
@@ -872,6 +874,28 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_extra_args_allows_extras_alias() {
+        let args = vec![
+            "lex".to_string(),
+            "convert".to_string(),
+            "doc.lex".to_string(),
+            "--extras-css-path".to_string(),
+            "styles.css".to_string(),
+        ];
+
+        let (cleaned, extra) = parse_extra_args(&args);
+        assert_eq!(
+            cleaned,
+            vec![
+                "lex".to_string(),
+                "convert".to_string(),
+                "doc.lex".to_string()
+            ]
+        );
+        assert_eq!(extra.get("css-path"), Some(&"styles.css".to_string()));
+    }
+
+    #[test]
     fn test_parse_extra_args_mixed_boolean_and_value() {
         let args = vec![
             "lex".to_string(),
@@ -911,6 +935,21 @@ mod tests {
         assert!(config.inspect.ast.include_all_properties);
         assert!(!config.inspect.nodemap.color_blocks);
         assert_eq!(config.convert.pdf.size, PdfPageSize::Mobile);
+        assert!(extras.is_empty());
+    }
+
+    #[test]
+    fn apply_config_overrides_handles_css_path_overrides() {
+        let mut config = load_cli_config(None);
+        let mut extras = HashMap::new();
+        extras.insert("css-path".to_string(), "custom.css".to_string());
+
+        apply_config_overrides(&mut config, &mut extras);
+
+        assert_eq!(
+            config.convert.html.custom_css.as_deref(),
+            Some("custom.css")
+        );
         assert!(extras.is_empty());
     }
 
