@@ -22,6 +22,7 @@ tempfile = "3"
 which = "4"
 url = "2.4"
 pathdiff = "0.2"
+roxmltree = "0.19"
 
 [dev-dependencies]
 insta = { workspace = true }
