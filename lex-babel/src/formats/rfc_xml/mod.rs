@@ -31,7 +31,7 @@ impl Format for RfcXmlFormat {
     fn parse(&self, source: &str) -> Result<Document, FormatError> {
         // Parse XML to IR
         let ir_doc = parser::parse_to_ir(source)?;
-        
+
         // Convert IR to Lex AST using the common converter
         Ok(crate::from_ir(&ir_doc))
     }
