@@ -1,6 +1,6 @@
 [package]
 name = "lex-cli"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2021"
 authors = ["lex contributors"]
 description = "Command-line interface for the lex format"
@@ -19,7 +19,7 @@ doctest = false
 
 [dependencies]
 lex-core = { workspace = true }
-lex-babel = { version = "0.2.4", path = "../lex-babel" }
+lex-babel = { version = "0.2.6", path = "../lex-babel" }
 lex-config = { version = "0.2.4", path = "../lex-config" }
 clap = { workspace = true }
 serde_json = { workspace = true }
