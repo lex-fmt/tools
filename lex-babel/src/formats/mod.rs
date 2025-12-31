@@ -16,7 +16,7 @@ pub mod png;
 pub mod tag;
 pub mod treeviz;
 
-pub use html::HtmlFormat;
+pub use html::{get_default_css, HtmlFormat, HtmlOptions, HtmlTheme};
 pub use lex::LexFormat;
 pub use linetreeviz::LinetreevizFormat;
 pub use markdown::MarkdownFormat;

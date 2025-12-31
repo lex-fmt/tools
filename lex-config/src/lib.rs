@@ -112,6 +112,9 @@ pub enum PdfPageSize {
 #[derive(Debug, Clone, Deserialize)]
 pub struct HtmlConfig {
     pub theme: String,
+    /// Optional path to a custom CSS file to append after the baseline CSS.
+    #[serde(default)]
+    pub custom_css: Option<String>,
 }
 
 /// Helper for layering user overrides over the built-in defaults.

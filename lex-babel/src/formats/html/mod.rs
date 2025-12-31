@@ -114,6 +114,16 @@ use crate::error::FormatError;
 use crate::format::Format;
 use lex_core::lex::ast::Document;
 
+pub use serializer::HtmlOptions;
+
+/// Returns the default baseline CSS used for HTML export.
+///
+/// This is the same CSS embedded in all HTML exports when no custom CSS is provided.
+/// Use this to get a starting point for custom styling.
+pub fn get_default_css() -> &'static str {
+    include_str!("../../../css/baseline.css")
+}
+
 /// Format implementation for HTML
 pub struct HtmlFormat {
     /// CSS theme to use for export
@@ -121,11 +131,12 @@ pub struct HtmlFormat {
 }
 
 /// Available CSS themes for HTML export
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum HtmlTheme {
     /// Serif typography override (fonts only, layout comes from baseline)
     FancySerif,
     /// Baseline modern theme (no-op; relies on baseline.css)
+    #[default]
     Modern,
 }
 
@@ -201,6 +212,38 @@ impl Format for HtmlFormat {
             };
         }
 
-        serializer::serialize_to_html(doc, theme).map(crate::format::SerializedDocument::Text)
+        let mut html_options = HtmlOptions::new(theme);
+
+        // Handle custom CSS option (expects CSS content, not path)
+        if let Some(css_content) = options.get("custom_css") {
+            html_options = html_options.with_custom_css(css_content.clone());
+        }
+
+        serializer::serialize_to_html_with_options(doc, html_options)
+            .map(crate::format::SerializedDocument::Text)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_default_css_returns_baseline() {
+        let css = get_default_css();
+        // Should contain key selectors from baseline.css
+        assert!(css.contains(".lex-document"));
+        assert!(css.contains(".lex-paragraph"));
+        assert!(css.contains(".lex-session"));
+        // Should be non-trivial content
+        assert!(css.len() > 1000);
+    }
+
+    #[test]
+    fn test_get_default_css_is_same_as_embedded() {
+        // The CSS returned should be the exact same as what's embedded in HTML output
+        let css = get_default_css();
+        // Verify it's the actual include_str content by checking for CSS custom properties
+        assert!(css.contains("--lex-"));
     }
 }

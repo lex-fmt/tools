@@ -277,6 +277,19 @@ fn build_cli() -> Command {
                         .action(ArgAction::SetTrue),
                 ),
         )
+        .subcommand(
+            Command::new("generate-lex-css")
+                .about("Output the default CSS used for HTML export")
+                .long_about(
+                    "Outputs the default baseline CSS used when converting to HTML.\n\n\
+                    Use this as a starting point for custom styling. The output can be\n\
+                    saved to a file and customized, then passed via --extra-css to the\n\
+                    convert command to extend the default styles.\n\n\
+                    Examples:\n  \
+                    lex generate-lex-css                    # Print CSS to stdout\n  \
+                    lex generate-lex-css > custom.css       # Save to file for editing"
+                ),
+        )
 }
 
 fn main() {
@@ -296,6 +309,7 @@ fn main() {
                 && !cleaned_args[1].starts_with('-')
                 && cleaned_args[1] != "inspect"
                 && cleaned_args[1] != "convert"
+                && cleaned_args[1] != "generate-lex-css"
                 && cleaned_args[1] != "help"
             {
                 // Inject "convert" as the subcommand
@@ -378,6 +392,9 @@ fn main() {
             let all = sub_matches.get_flag("all");
             handle_element_at_command(path, row, col, all);
         }
+        Some(("generate-lex-css", _)) => {
+            handle_generate_lex_css_command();
+        }
         _ => {
             eprintln!("Unknown subcommand. Use --help for usage information.");
             std::process::exit(1);
@@ -457,6 +474,14 @@ fn handle_convert_command(
             format_options = pdf_params_from_config(config);
         } else if to == "html" {
             format_options.insert("theme".to_string(), config.convert.html.theme.clone());
+            // Load custom CSS file if configured
+            if let Some(css_path) = &config.convert.html.custom_css {
+                let css_content = fs::read_to_string(css_path).unwrap_or_else(|e| {
+                    eprintln!("Error reading CSS file '{css_path}': {e}");
+                    std::process::exit(1);
+                });
+                format_options.insert("custom_css".to_string(), css_content);
+            }
         }
         for (key, value) in extra_params {
             format_options.insert(key.clone(), value.clone());
@@ -521,6 +546,11 @@ fn handle_element_at_command(path: &str, row: usize, col: usize, all: bool) {
     } else if let Some(node) = path_nodes.last() {
         println!("{}: {}", node.node_type(), node.display_label());
     }
+}
+
+/// Handle the generate-lex-css command
+fn handle_generate_lex_css_command() {
+    print!("{}", lex_babel::formats::get_default_css());
 }
 
 /// Handle the list-transforms command
@@ -620,6 +650,10 @@ fn apply_config_overrides(config: &mut LexConfig, extra_params: &mut HashMap<Str
 
     if let Some(raw) = take_override(extra_params, &["theme"]) {
         config.convert.html.theme = raw;
+    }
+
+    if let Some(path) = take_override(extra_params, &["css"]) {
+        config.convert.html.custom_css = Some(path);
     }
 }
 

@@ -18,8 +18,39 @@ use std::cell::{Cell, RefCell};
 use std::default::Default;
 use std::rc::Rc;
 
+/// Options for HTML serialization
+#[derive(Debug, Clone, Default)]
+pub struct HtmlOptions {
+    /// CSS theme to use
+    pub theme: HtmlTheme,
+    /// Optional custom CSS to append after the baseline and theme CSS
+    pub custom_css: Option<String>,
+}
+
+impl HtmlOptions {
+    pub fn new(theme: HtmlTheme) -> Self {
+        Self {
+            theme,
+            custom_css: None,
+        }
+    }
+
+    pub fn with_custom_css(mut self, css: String) -> Self {
+        self.custom_css = Some(css);
+        self
+    }
+}
+
 /// Serialize a Lex document to HTML with the given theme
 pub fn serialize_to_html(doc: &Document, theme: HtmlTheme) -> Result<String, FormatError> {
+    serialize_to_html_with_options(doc, HtmlOptions::new(theme))
+}
+
+/// Serialize a Lex document to HTML with full options
+pub fn serialize_to_html_with_options(
+    doc: &Document,
+    options: HtmlOptions,
+) -> Result<String, FormatError> {
     // Extract document title from root session (before IR conversion loses it)
     let title = doc.root.title.as_string();
     let title = if title.is_empty() {
@@ -41,7 +72,7 @@ pub fn serialize_to_html(doc: &Document, theme: HtmlTheme) -> Result<String, For
     let html_string = serialize_dom(&dom)?;
 
     // Step 5: Wrap in complete HTML document with CSS
-    let complete_html = wrap_in_document(&html_string, &title, theme)?;
+    let complete_html = wrap_in_document(&html_string, &title, &options)?;
 
     Ok(complete_html)
 }
@@ -533,12 +564,19 @@ fn serialize_dom(dom: &RcDom) -> Result<String, FormatError> {
 }
 
 /// Wrap the content in a complete HTML document with embedded CSS
-fn wrap_in_document(body_html: &str, title: &str, theme: HtmlTheme) -> Result<String, FormatError> {
+fn wrap_in_document(
+    body_html: &str,
+    title: &str,
+    options: &HtmlOptions,
+) -> Result<String, FormatError> {
     let baseline_css = include_str!("../../../css/baseline.css");
-    let theme_css = match theme {
+    let theme_css = match options.theme {
         HtmlTheme::FancySerif => include_str!("../../../css/themes/theme-fancy-serif.css"),
         HtmlTheme::Modern => include_str!("../../../css/themes/theme-modern.css"),
     };
+
+    // Custom CSS is appended after baseline and theme
+    let custom_css = options.custom_css.as_deref().unwrap_or("");
 
     // Escape HTML entities in title for safety
     let escaped_title = html_escape(title);
@@ -554,6 +592,7 @@ fn wrap_in_document(body_html: &str, title: &str, theme: HtmlTheme) -> Result<St
   <style>
 {baseline_css}
 {theme_css}
+{custom_css}
   </style>
 </head>
 <body>
@@ -624,5 +663,27 @@ mod tests {
         let html = serialize_to_html(&lex_doc, HtmlTheme::FancySerif).unwrap();
 
         assert!(html.contains("Cormorant")); // Fancy serif theme uses Cormorant font
+    }
+
+    #[test]
+    fn test_custom_css_appended() {
+        let lex_src = "Test document.\n";
+        let lex_doc = STRING_TO_AST.run(lex_src.to_string()).unwrap();
+
+        let custom_css = ".my-custom-class { color: red; }";
+        let options = HtmlOptions::new(HtmlTheme::Modern).with_custom_css(custom_css.to_string());
+        let html = serialize_to_html_with_options(&lex_doc, options).unwrap();
+
+        // Custom CSS should be present
+        assert!(html.contains(".my-custom-class { color: red; }"));
+        // Baseline CSS should still be present
+        assert!(html.contains(".lex-document"));
+    }
+
+    #[test]
+    fn test_html_options_default() {
+        let options = HtmlOptions::default();
+        assert_eq!(options.theme, HtmlTheme::Modern);
+        assert!(options.custom_css.is_none());
     }
 }
