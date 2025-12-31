@@ -17,7 +17,7 @@ impl Format for RfcXmlFormat {
     }
 
     fn file_extensions(&self) -> &[&str] {
-        &["xml"]
+        &["rfcxml"]
     }
 
     fn supports_parsing(&self) -> bool {
