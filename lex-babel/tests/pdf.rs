@@ -1,4 +1,4 @@
-#[cfg(unix)]
+#[cfg(all(unix, feature = "native-export"))]
 mod unix {
     use lex_babel::format::{Format, SerializedDocument};
     use lex_babel::formats::pdf::PdfFormat;
@@ -62,8 +62,8 @@ exit 0
     }
 }
 
-#[cfg(not(unix))]
+#[cfg(not(all(unix, feature = "native-export")))]
 #[test]
-fn pdf_stub_skipped_on_non_unix() {
-    eprintln!("Skipping PDF tests on non-Unix platforms");
+fn pdf_stub_skipped() {
+    eprintln!("Skipping PDF tests (native-export feature or Unix required)");
 }

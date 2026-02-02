@@ -12,14 +12,18 @@ categories = ["text-processing"]
 [lib]
 doctest = false
 
+[features]
+default = ["native-export"]
+native-export = ["tempfile", "which"]
+
 [dependencies]
 lex-core = { workspace = true }
 comrak = "0.29"
 html5ever = "0.35"
 markup5ever_rcdom = "0.35"
 serde = { workspace = true }
-tempfile = "3"
-which = "4"
+tempfile = { version = "3", optional = true }
+which = { version = "4", optional = true }
 url = "2.4"
 pathdiff = "0.2"
 roxmltree = "0.19"
@@ -28,3 +32,4 @@ roxmltree = "0.19"
 insta = { workspace = true }
 once_cell = "1"
 regex = "1"
+tempfile = "3"
