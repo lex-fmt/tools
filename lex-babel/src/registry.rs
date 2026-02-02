@@ -135,7 +135,9 @@ impl FormatRegistry {
         // Register built-in formats
         registry.register(crate::formats::lex::LexFormat::default());
         registry.register(crate::formats::html::HtmlFormat::default());
+        #[cfg(feature = "native-export")]
         registry.register(crate::formats::pdf::PdfFormat::default());
+        #[cfg(feature = "native-export")]
         registry.register(crate::formats::png::PngFormat::default());
         registry.register(crate::formats::markdown::MarkdownFormat);
         registry.register(crate::formats::rfc_xml::RfcXmlFormat);
