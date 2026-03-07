@@ -365,29 +365,8 @@ fn build_comrak_ast<'a>(
                     }
                 } else if let Some(heading) = current_heading {
                     // Add to heading (headings can have inline content directly)
-                    // Strip leading numbering if present (e.g. "1. Title" -> "Title")
-                    let mut heading_inline = inline_to_emit.clone();
-                    if let InlineContent::Text(text) = &heading_inline {
-                        // Regex approximation: ^\d+(\.\d+)*\.?\s+
-                        // Since we don't have regex crate, do manual check
-                        let trimmed = text.trim_start();
-                        if let Some(first_char) = trimmed.chars().next() {
-                            if first_char.is_ascii_digit() {
-                                // Find end of numbering
-                                if let Some(end_idx) =
-                                    trimmed.find(|c: char| !c.is_ascii_digit() && c != '.')
-                                {
-                                    // Check if followed by space
-                                    if trimmed[end_idx..].starts_with(' ') {
-                                        heading_inline = InlineContent::Text(
-                                            trimmed[end_idx..].trim_start().to_string(),
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    add_inline_to_node(arena, heading, &heading_inline)?;
+                    // Session numbering is preserved — it's an author's communication choice
+                    add_inline_to_node(arena, heading, &inline_to_emit)?;
                 } else if in_list_item {
                     // If we're already inside an explicit paragraph, write directly to it.
                     if matches!(current_parent.data.borrow().value, NodeValue::Paragraph) {
