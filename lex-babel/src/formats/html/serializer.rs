@@ -114,8 +114,15 @@ fn build_html_dom(events: &[Event]) -> Result<RcDom, FormatError> {
                 current_parent = section;
 
                 // Create heading element (h1-h6, max at h6)
-                let heading_tag = format!("h{}", (*level as u8).min(6));
-                let heading = create_element(&heading_tag, vec![]);
+                // For levels > 6, add class attribute to preserve true depth
+                let clamped = (*level as u8).min(6);
+                let heading_tag = format!("h{clamped}");
+                let heading = if *level > 6 {
+                    let class = format!("lex-level-{level}");
+                    create_element(&heading_tag, vec![("class", &class)])
+                } else {
+                    create_element(&heading_tag, vec![])
+                };
                 current_parent.children.borrow_mut().push(heading.clone());
                 current_heading = Some(heading);
             }

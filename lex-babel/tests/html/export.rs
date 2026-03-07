@@ -341,6 +341,44 @@ fn test_document_title_session_without_title() {
 }
 
 // ============================================================================
+// BEYOND-H6 DEEP SESSION TESTS
+// ============================================================================
+
+#[test]
+fn test_deep_session_beyond_h6_gets_class() {
+    // Create a document with 7 levels of session nesting.
+    // Doc title = H1, so root session = H2, and 6 levels deep = H8 → clamped to H6.
+    // Levels > 6 should get class="lex-level-N" for lossless identification.
+    let lex_src = concat!(
+        "1. Level One\n\n",
+        "    1.1. Level Two\n\n",
+        "        1.1.1. Level Three\n\n",
+        "            1.1.1.1. Level Four\n\n",
+        "                1.1.1.1.1. Level Five\n\n",
+        "                    1.1.1.1.1.1. Level Six\n\n",
+        "                        Deep content.\n",
+    );
+    let html = lex_to_html(lex_src, HtmlTheme::Modern);
+
+    // Levels 2-6 should use standard h2-h6 without lex-level class
+    assert!(html.contains("<h2>"), "Level 1 session should be h2");
+
+    // Level 7 (H7 clamped to H6) should have lex-level-7 class
+    // Note: doc title occupies H1, so 6 nested sessions = levels 2..7
+    // Level 7 is the first to exceed H6
+    assert!(
+        html.contains("lex-level-7"),
+        "Session at level 7 must have class lex-level-7 for lossless depth: {html}"
+    );
+
+    // The section wrapper already has lex-session-N for all levels
+    assert!(
+        html.contains("lex-session-7"),
+        "Section wrapper should have lex-session-7 class"
+    );
+}
+
+// ============================================================================
 // KITCHENSINK TEST
 // ============================================================================
 
