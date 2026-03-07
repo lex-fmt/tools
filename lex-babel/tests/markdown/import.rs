@@ -5,6 +5,7 @@
 
 use insta::assert_snapshot;
 use lex_babel::format::Format;
+use lex_babel::formats::lex::LexFormat;
 use lex_babel::formats::markdown::MarkdownFormat;
 use lex_babel::formats::tag::serialize_document_with_params;
 use lex_core::lex::ast::ContentItem;
@@ -16,19 +17,22 @@ fn md_to_lex(md: &str) -> lex_core::lex::ast::Document {
     MarkdownFormat.parse(md).expect("Should parse markdown")
 }
 
+/// Read a fixture file from the tests/fixtures directory
+fn read_fixture(fixture: &str) -> String {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join(fixture);
+    std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("Failed to read {path:?}: {e}"))
+}
+
 /// Snapshot helper for reference Markdown fixtures
 ///
 /// Uses `ast-full` serialization to capture complete AST structure including
 /// annotations and all metadata, ensuring comprehensive regression detection
 /// for complex markdown documents.
 fn snapshot_md_fixture(fixture: &str, snapshot_name: &str) {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
-        .join("fixtures")
-        .join(fixture);
-    let md =
-        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("Failed to read {path:?}: {e}"));
-
+    let md = read_fixture(fixture);
     let doc = md_to_lex(&md);
 
     let mut params = HashMap::new();
@@ -36,6 +40,31 @@ fn snapshot_md_fixture(fixture: &str, snapshot_name: &str) {
     let serialized = serialize_document_with_params(&doc, &params);
 
     assert_snapshot!(snapshot_name, serialized);
+}
+
+/// Validate that Markdown→Lex text produces valid Lex that lex-core can parse.
+///
+/// This catches serialization bugs where lex-babel generates syntactically
+/// invalid Lex output.
+fn assert_lex_output_valid(md: &str, label: &str) {
+    let lex_doc = md_to_lex(md);
+    let lex_format = LexFormat::default();
+    let lex_text = lex_format
+        .serialize(&lex_doc)
+        .unwrap_or_else(|e| panic!("[{label}] Failed to serialize to Lex: {e}"));
+
+    // Parse the generated Lex text back through lex-core's parser
+    let reparsed = lex_format.parse(&lex_text).unwrap_or_else(|e| {
+        panic!("[{label}] Generated Lex is invalid:\n{e}\n\nLex output:\n{lex_text}")
+    });
+
+    // Basic structural sanity: reparsed document should be non-empty if input was non-empty
+    if !lex_doc.root.children.is_empty() {
+        assert!(
+            !reparsed.root.children.is_empty(),
+            "[{label}] Reparsed Lex document lost all content"
+        );
+    }
 }
 
 #[test]
@@ -462,4 +491,183 @@ fn test_markdown_import_comrak_reference() {
         "markdown-reference-comrak.md",
         "markdown_import_comrak_reference",
     );
+}
+
+#[test]
+fn test_markdown_import_comrak_readme() {
+    snapshot_md_fixture("comrak-readme.md", "markdown_import_comrak_readme");
+}
+
+#[test]
+fn test_comrak_readme_structure() {
+    let md = read_fixture("comrak-readme.md");
+    let doc = md_to_lex(&md);
+
+    let root_sessions: Vec<_> = doc
+        .root
+        .children
+        .iter()
+        .filter_map(|el| match el {
+            ContentItem::Session(s) => Some(s),
+            _ => None,
+        })
+        .collect();
+
+    // Comrak README has sections: Installation, Usage, Security, Extensions, Plugins, etc.
+    assert!(
+        root_sessions.len() >= 5,
+        "Comrak README should have at least 5 top-level sections, found {}",
+        root_sessions.len()
+    );
+
+    let titles: Vec<String> = root_sessions
+        .iter()
+        .map(|s| s.title.as_string().to_string())
+        .collect();
+    assert!(
+        titles.iter().any(|t| t.contains("Installation")),
+        "Should have Installation section, got: {titles:?}"
+    );
+    assert!(
+        titles.iter().any(|t| t.contains("Extensions")),
+        "Should have Extensions section, got: {titles:?}"
+    );
+
+    // Should have code blocks (Comrak README has multiple)
+    fn count_verbatims(items: &[ContentItem]) -> usize {
+        items
+            .iter()
+            .map(|el| match el {
+                ContentItem::VerbatimBlock(_) => 1,
+                ContentItem::Session(s) => count_verbatims(&s.children),
+                _ => 0,
+            })
+            .sum()
+    }
+    let verbatim_count = count_verbatims(&doc.root.children);
+    assert!(
+        verbatim_count >= 3,
+        "Comrak README should have at least 3 code blocks, found {verbatim_count}"
+    );
+
+    // Should have lists (extension lists, CLI options, etc.)
+    fn count_lists(items: &[ContentItem]) -> usize {
+        items
+            .iter()
+            .map(|el| match el {
+                ContentItem::List(_) => 1,
+                ContentItem::Session(s) => count_lists(&s.children),
+                _ => 0,
+            })
+            .sum()
+    }
+    let list_count = count_lists(&doc.root.children);
+    assert!(
+        list_count >= 2,
+        "Comrak README should have at least 2 lists, found {list_count}"
+    );
+}
+
+// ============================================================================
+// LEX OUTPUT VALIDITY
+// ============================================================================
+//
+// These tests verify that Markdown→Lex serialization produces valid Lex that
+// lex-core's parser accepts. This catches a class of bugs where lex-babel
+// generates syntactically broken output.
+
+#[test]
+fn test_lex_validity_simple_elements() {
+    assert_lex_output_valid("Simple paragraph.\n", "paragraph");
+    assert_lex_output_valid("## Heading\n\nContent.\n", "heading");
+    assert_lex_output_valid("- One\n- Two\n- Three\n", "list");
+    assert_lex_output_valid("```rust\nfn main() {}\n```\n", "code_block");
+    assert_lex_output_valid(
+        "This is **bold** and *italic* and `code` text.\n",
+        "inline_formatting",
+    );
+}
+
+#[test]
+fn test_lex_validity_complex_document() {
+    let md = "\
+## Introduction
+
+First paragraph with **bold** and *italic*.
+
+### Subsection
+
+- Item one
+- Item two
+  - Nested item
+
+```python
+def hello():
+    print('world')
+```
+
+## Another Section
+
+Final paragraph.
+";
+    assert_lex_output_valid(md, "complex_document");
+}
+
+/// Lex serializer produces verbatim blocks with empty lines that trigger a
+/// lex-core parser panic ("Cannot compute bounding box from empty token list").
+/// These tests document the bug and will pass once the serializer is fixed.
+#[test]
+#[ignore = "lex-babel Lex serializer produces empty verbatim lines that crash lex-core parser"]
+fn test_lex_validity_reference_fixtures() {
+    let commonmark = read_fixture("markdown-reference-commonmark.md");
+    assert_lex_output_valid(&commonmark, "commonmark_reference");
+
+    let comrak = read_fixture("markdown-reference-comrak.md");
+    assert_lex_output_valid(&comrak, "comrak_reference");
+}
+
+/// See `test_lex_validity_reference_fixtures` for bug description.
+#[test]
+#[ignore = "lex-babel Lex serializer produces empty verbatim lines that crash lex-core parser"]
+fn test_lex_validity_comrak_readme() {
+    let readme = read_fixture("comrak-readme.md");
+    assert_lex_output_valid(&readme, "comrak_readme");
+}
+
+#[test]
+fn test_lex_validity_trifecta_round_trips() {
+    // Lex → Markdown → Lex text → lex-core parse
+    for (name, path) in [
+        (
+            "trifecta_010",
+            "../specs/v1/trifecta/010-paragraphs-sessions-flat-single.lex",
+        ),
+        (
+            "trifecta_020",
+            "../specs/v1/trifecta/020-paragraphs-sessions-flat-multiple.lex",
+        ),
+        (
+            "trifecta_060",
+            "../specs/v1/trifecta/060-trifecta-nesting.lex",
+        ),
+    ] {
+        let lex_src =
+            std::fs::read_to_string(path).unwrap_or_else(|e| panic!("Failed to read {path}: {e}"));
+        let lex_doc = lex_core::lex::transforms::standard::STRING_TO_AST
+            .run(lex_src.to_string())
+            .unwrap();
+        let md = MarkdownFormat.serialize(&lex_doc).unwrap();
+        assert_lex_output_valid(&md, name);
+    }
+}
+
+#[test]
+fn test_lex_validity_kitchensink() {
+    let lex_src = std::fs::read_to_string("../specs/v1/benchmark/010-kitchensink.lex")
+        .expect("kitchensink file should exist");
+    let lex_doc = lex_core::lex::transforms::standard::STRING_TO_AST
+        .run(lex_src.to_string())
+        .unwrap();
+    let md = MarkdownFormat.serialize(&lex_doc).unwrap();
+    assert_lex_output_valid(&md, "kitchensink");
 }
