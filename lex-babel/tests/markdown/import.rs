@@ -3,7 +3,6 @@
 //! These tests verify that Markdown documents are correctly converted to Lex
 //! by checking the resulting Lex AST structure.
 
-use comrak::{parse_document, Arena, ComrakOptions};
 use insta::assert_snapshot;
 use lex_babel::format::Format;
 use lex_babel::formats::markdown::MarkdownFormat;
@@ -221,7 +220,6 @@ fn test_annotation_round_trip() {
 
 #[test]
 fn test_trifecta_010_round_trip() {
-    // Start with Lex, export to Markdown, import back to Lex
     let lex_src =
         std::fs::read_to_string("../specs/v1/trifecta/010-paragraphs-sessions-flat-single.lex")
             .expect("trifecta 010 file should exist");
@@ -230,19 +228,45 @@ fn test_trifecta_010_round_trip() {
         .run(lex_src.to_string())
         .unwrap();
 
-    // Export to Markdown
     let md = MarkdownFormat.serialize(&lex_doc).unwrap();
-
-    // Import back to Lex
     let lex_doc2 = md_to_lex(&md);
 
-    // Should have sessions
-    let has_sessions = lex_doc2
+    // Verify structural preservation: sessions with content
+    let sessions: Vec<_> = lex_doc2
         .root
         .children
         .iter()
-        .any(|el| matches!(el, ContentItem::Session(_)));
-    assert!(has_sessions, "Round-trip should preserve sessions");
+        .filter_map(|el| match el {
+            ContentItem::Session(s) => Some(s),
+            _ => None,
+        })
+        .collect();
+
+    assert!(
+        sessions.len() >= 2,
+        "Should have at least 2 sessions, found {}",
+        sessions.len()
+    );
+
+    // First session should have title containing "Introduction"
+    assert!(
+        sessions[0].title.as_string().contains("Introduction"),
+        "First session should be 'Introduction', got '{}'",
+        sessions[0].title.as_string()
+    );
+
+    // Sessions should have paragraph content
+    for session in &sessions {
+        let has_paragraphs = session
+            .children
+            .iter()
+            .any(|c| matches!(c, ContentItem::Paragraph(_)));
+        assert!(
+            has_paragraphs,
+            "Session '{}' should have paragraph content",
+            session.title.as_string()
+        );
+    }
 }
 
 #[test]
@@ -255,23 +279,38 @@ fn test_trifecta_020_round_trip() {
         .run(lex_src.to_string())
         .unwrap();
 
-    // Export to Markdown
     let md = MarkdownFormat.serialize(&lex_doc).unwrap();
-
-    // Import back to Lex
     let lex_doc2 = md_to_lex(&md);
 
-    // Count sessions
-    let session_count = lex_doc2
+    // Collect root-level sessions
+    let sessions: Vec<_> = lex_doc2
         .root
         .children
         .iter()
-        .filter(|el| matches!(el, ContentItem::Session(_)))
-        .count();
+        .filter_map(|el| match el {
+            ContentItem::Session(s) => Some(s),
+            _ => None,
+        })
+        .collect();
 
     assert!(
-        session_count >= 2,
-        "Should have multiple sessions, found {session_count}"
+        sessions.len() >= 3,
+        "Should have at least 3 root sessions, found {}",
+        sessions.len()
+    );
+
+    // Verify session titles survive round-trip
+    let titles: Vec<String> = sessions
+        .iter()
+        .map(|s| s.title.as_string().to_string())
+        .collect();
+    assert!(
+        titles.iter().any(|t| t.contains("First")),
+        "Should have a session containing 'First' in titles: {titles:?}"
+    );
+    assert!(
+        titles.iter().any(|t| t.contains("Second")),
+        "Should have a session containing 'Second' in titles: {titles:?}"
     );
 }
 
@@ -284,54 +323,44 @@ fn test_trifecta_060_nesting_round_trip() {
         .run(lex_src.to_string())
         .unwrap();
 
-    // Export to Markdown
     let md = MarkdownFormat.serialize(&lex_doc).unwrap();
-
-    // Parse markdown to verify structure
-    let arena = Arena::new();
-    let options = ComrakOptions::default();
-    let root = parse_document(&arena, &md, &options);
-
-    // Should have multiple heading levels
-    let mut heading_levels = vec![];
-    for child in root.children() {
-        if let comrak::nodes::NodeValue::Heading(h) = &child.data.borrow().value {
-            heading_levels.push(h.level);
-        }
-    }
-
-    assert!(
-        !heading_levels.is_empty(),
-        "Should have headings from sessions"
-    );
-    assert!(
-        heading_levels.iter().max().unwrap_or(&1) >= &2,
-        "Should have nested heading levels"
-    );
-
-    // Import back to Lex
     let lex_doc2 = md_to_lex(&md);
 
-    // Should have both paragraphs and sessions and lists
-    let has_paragraphs = lex_doc2
+    // Verify we have sessions (nesting structure)
+    let root_sessions: Vec<_> = lex_doc2
         .root
         .children
         .iter()
-        .any(|el| matches!(el, ContentItem::Paragraph(_)));
-    let has_sessions = lex_doc2
-        .root
-        .children
-        .iter()
-        .any(|el| matches!(el, ContentItem::Session(_)));
-    let has_lists = lex_doc2
-        .root
-        .children
-        .iter()
-        .any(|el| matches!(el, ContentItem::List(_)));
+        .filter_map(|el| match el {
+            ContentItem::Session(s) => Some(s),
+            _ => None,
+        })
+        .collect();
 
+    assert!(!root_sessions.is_empty(), "Should have root-level sessions");
+
+    // Verify nested sessions exist (at least one session has child sessions)
+    let has_nested = root_sessions.iter().any(|s| {
+        s.children
+            .iter()
+            .any(|c| matches!(c, ContentItem::Session(_)))
+    });
     assert!(
-        has_paragraphs || has_sessions || has_lists,
-        "Should have various element types"
+        has_nested,
+        "Should have nested sessions (heading hierarchy)"
+    );
+
+    // Verify lists survive round-trip
+    fn has_list(items: &[ContentItem]) -> bool {
+        items.iter().any(|c| match c {
+            ContentItem::List(_) => true,
+            ContentItem::Session(s) => has_list(&s.children),
+            _ => false,
+        })
+    }
+    assert!(
+        has_list(&lex_doc2.root.children),
+        "Lists should survive round-trip"
     );
 }
 
@@ -354,30 +383,65 @@ fn test_kitchensink_round_trip() {
     // Import back to Lex
     let lex_doc2 = md_to_lex(&md);
 
-    // Verify we have multiple element types
-    fn check_elements(elements: &[ContentItem], flags: &mut (bool, bool, bool, bool)) {
+    // Count element types recursively
+    fn count_elements(elements: &[ContentItem]) -> (usize, usize, usize, usize) {
+        let mut counts = (0usize, 0usize, 0usize, 0usize); // paragraphs, sessions, lists, verbatims
         for el in elements {
             match el {
-                ContentItem::Paragraph(_) => flags.0 = true,
+                ContentItem::Paragraph(_) => counts.0 += 1,
                 ContentItem::Session(s) => {
-                    flags.1 = true;
-                    check_elements(&s.children, flags);
+                    counts.1 += 1;
+                    let inner = count_elements(&s.children);
+                    counts.0 += inner.0;
+                    counts.1 += inner.1;
+                    counts.2 += inner.2;
+                    counts.3 += inner.3;
                 }
-                ContentItem::List(_) => flags.2 = true,
-                ContentItem::VerbatimBlock(_) => flags.3 = true,
+                ContentItem::List(_) => counts.2 += 1,
+                ContentItem::VerbatimBlock(_) => counts.3 += 1,
                 _ => {}
             }
         }
+        counts
     }
 
-    let mut flags = (false, false, false, false);
-    check_elements(&lex_doc2.root.children, &mut flags);
-    let (has_paragraph, has_session, has_list, has_verbatim) = flags;
+    let (paragraphs, sessions, lists, verbatims) = count_elements(&lex_doc2.root.children);
 
-    assert!(has_paragraph, "Kitchensink should have paragraphs");
-    assert!(has_session, "Kitchensink should have sessions");
-    assert!(has_list, "Kitchensink should have lists");
-    assert!(has_verbatim, "Kitchensink should have verbatim blocks");
+    // Kitchensink is a comprehensive document — verify meaningful counts
+    assert!(
+        paragraphs >= 3,
+        "Kitchensink should have at least 3 paragraphs, found {paragraphs}"
+    );
+    assert!(
+        sessions >= 2,
+        "Kitchensink should have at least 2 sessions, found {sessions}"
+    );
+    assert!(
+        lists >= 1,
+        "Kitchensink should have at least 1 list, found {lists}"
+    );
+    assert!(
+        verbatims >= 1,
+        "Kitchensink should have at least 1 verbatim block, found {verbatims}"
+    );
+
+    // Verify sessions have meaningful titles
+    let root_sessions: Vec<_> = lex_doc2
+        .root
+        .children
+        .iter()
+        .filter_map(|el| match el {
+            ContentItem::Session(s) => Some(s),
+            _ => None,
+        })
+        .collect();
+
+    for session in &root_sessions {
+        assert!(
+            !session.title.as_string().is_empty(),
+            "All root sessions should have non-empty titles"
+        );
+    }
 }
 
 // ============================================================================
