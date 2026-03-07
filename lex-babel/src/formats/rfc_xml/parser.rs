@@ -1,6 +1,7 @@
 use crate::error::FormatError;
 use crate::ir::nodes::{
-    Definition, DocNode, Document, Heading, InlineContent, List, ListItem, Paragraph, Verbatim,
+    Definition, DocNode, Document, Heading, InlineContent, List, ListItem, ListStyle, Paragraph,
+    Verbatim,
 };
 use roxmltree::{Node, NodeType};
 
@@ -105,16 +106,29 @@ fn process_container_children(
             }
             "ul" | "ol" => {
                 let ordered = child.tag_name().name() == "ol";
+                let style = if ordered {
+                    ListStyle::Numeric
+                } else {
+                    ListStyle::Bullet
+                };
                 nodes.push(DocNode::List(List {
                     ordered,
+                    style,
                     items: process_list_items(child, current_level)?,
                 }));
             }
             "list" => {
-                let style = child.attribute("style").unwrap_or("empty");
-                let ordered = style == "numbers" || style == "letters" || style == "format";
+                let xml_style = child.attribute("style").unwrap_or("empty");
+                let ordered =
+                    xml_style == "numbers" || xml_style == "letters" || xml_style == "format";
+                let style = if ordered {
+                    ListStyle::Numeric
+                } else {
+                    ListStyle::Bullet
+                };
                 nodes.push(DocNode::List(List {
                     ordered,
+                    style,
                     items: process_list_items(child, current_level)?,
                 }));
             }

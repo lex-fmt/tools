@@ -165,10 +165,25 @@ fn build_html_dom(events: &[Event]) -> Result<RcDom, FormatError> {
                 })?;
             }
 
-            Event::StartList { ordered } => {
+            Event::StartList { ordered, style } => {
                 current_heading = None;
                 let tag = if *ordered { "ol" } else { "ul" };
-                let list = create_element(tag, vec![("class", "lex-list")]);
+                // For ordered lists, set the HTML type attribute to preserve decoration style
+                let list = match style {
+                    crate::ir::nodes::ListStyle::AlphaLower => {
+                        create_element(tag, vec![("class", "lex-list"), ("type", "a")])
+                    }
+                    crate::ir::nodes::ListStyle::AlphaUpper => {
+                        create_element(tag, vec![("class", "lex-list"), ("type", "A")])
+                    }
+                    crate::ir::nodes::ListStyle::RomanLower => {
+                        create_element(tag, vec![("class", "lex-list"), ("type", "i")])
+                    }
+                    crate::ir::nodes::ListStyle::RomanUpper => {
+                        create_element(tag, vec![("class", "lex-list"), ("type", "I")])
+                    }
+                    _ => create_element(tag, vec![("class", "lex-list")]),
+                };
                 current_parent.children.borrow_mut().push(list.clone());
                 parent_stack.push(current_parent.clone());
                 current_parent = list;

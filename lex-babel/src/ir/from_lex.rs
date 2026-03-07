@@ -7,8 +7,8 @@ use lex_core::lex::ast::elements::{
 use lex_core::lex::ast::TextContent;
 
 use super::nodes::{
-    Annotation, Definition, DocNode, Document, Heading, InlineContent, List, ListItem, Paragraph,
-    Table, TableCell, TableCellAlignment, TableRow, Verbatim,
+    Annotation, Definition, DocNode, Document, Heading, InlineContent, List, ListItem, ListStyle,
+    Paragraph, Table, TableCell, TableCellAlignment, TableRow, Verbatim,
 };
 
 /// Converts a lex document to the IR.
@@ -257,14 +257,19 @@ fn from_lex_list(list: &LexList, level: usize) -> DocNode {
         })
         .collect();
 
-    // Detect if list is ordered by checking the first item's marker
-    let ordered = if let Some(LexContentItem::ListItem(li)) = list.items.first() {
-        is_ordered_marker(&li.marker)
+    // Detect list style from the first item's marker
+    let style = if let Some(LexContentItem::ListItem(li)) = list.items.first() {
+        detect_list_style(&li.marker)
     } else {
-        false
+        ListStyle::Bullet
     };
+    let ordered = style.is_ordered();
 
-    DocNode::List(List { items, ordered })
+    DocNode::List(List {
+        items,
+        ordered,
+        style,
+    })
 }
 
 /// Converts a lex list item to an IR list item node.
@@ -440,25 +445,60 @@ fn from_lex_verbatim_line(verbatim_line: &LexVerbatimLine) -> DocNode {
     })
 }
 
-/// Detects if a list marker indicates an ordered list.
-/// Returns true for markers like "1. ", "2. ", "a. ", etc.
-/// Returns false for plain markers like "- ".
-fn is_ordered_marker(marker: &TextContent) -> bool {
+/// Detects the list decoration style from a marker.
+fn detect_list_style(marker: &TextContent) -> ListStyle {
     let marker_text = marker.as_string().trim();
-
-    // Check if marker starts with a digit or letter followed by . or )
     if marker_text.is_empty() {
-        return false;
+        return ListStyle::Bullet;
     }
 
-    let first_char = marker_text.chars().next().unwrap();
+    // Strip trailing `.` or `)` to get the label part
+    let label = marker_text.trim_end_matches(['.', ')']);
 
-    // Ordered list markers start with numbers or letters
-    if first_char.is_ascii_digit() || first_char.is_alphabetic() {
-        // Check if followed by . or )
-        marker_text.contains('.') || marker_text.contains(')')
+    if label.is_empty() {
+        return ListStyle::Bullet;
+    }
+
+    // Check for bullet markers
+    if matches!(label, "-" | "*" | "+" | "–" | "—") {
+        return ListStyle::Bullet;
+    }
+
+    // Check for numeric: all digits
+    if label.chars().all(|c| c.is_ascii_digit()) {
+        return ListStyle::Numeric;
+    }
+
+    // Check for roman numerals (uppercase)
+    if label
+        .chars()
+        .all(|c| matches!(c, 'I' | 'V' | 'X' | 'L' | 'C' | 'D' | 'M'))
+    {
+        return ListStyle::RomanUpper;
+    }
+
+    // Check for roman numerals (lowercase)
+    if label
+        .chars()
+        .all(|c| matches!(c, 'i' | 'v' | 'x' | 'l' | 'c' | 'd' | 'm'))
+    {
+        return ListStyle::RomanLower;
+    }
+
+    // Check for alpha (single or multi char)
+    if label.chars().all(|c| c.is_ascii_uppercase()) {
+        return ListStyle::AlphaUpper;
+    }
+
+    if label.chars().all(|c| c.is_ascii_lowercase()) {
+        return ListStyle::AlphaLower;
+    }
+
+    // Fallback: if it has a period/paren, treat as numeric ordered
+    if marker_text.contains('.') || marker_text.contains(')') {
+        ListStyle::Numeric
     } else {
-        false
+        ListStyle::Bullet
     }
 }
 

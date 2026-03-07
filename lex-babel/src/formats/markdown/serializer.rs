@@ -177,7 +177,7 @@ fn build_comrak_ast<'a>(
                 }
             }
 
-            Event::StartList { ordered } => {
+            Event::StartList { ordered, .. } => {
                 current_heading = None;
 
                 let list_node = arena.alloc(AstNode::new(RefCell::new(Ast::new(

@@ -341,6 +341,53 @@ fn test_document_title_session_without_title() {
 }
 
 // ============================================================================
+// LIST DECORATION STYLE TESTS
+// ============================================================================
+
+#[test]
+fn test_alphabetical_list_html_type() {
+    let lex_src = "a. First item\nb. Second item\nc. Third item\n";
+    let html = lex_to_html(lex_src, HtmlTheme::Modern);
+
+    assert!(
+        html.contains("<ol") && html.contains("type=\"a\""),
+        "Lowercase alpha list should have type=\"a\": {html}"
+    );
+}
+
+#[test]
+fn test_roman_numeral_list_html_type() {
+    let lex_src = "I. First item\nII. Second item\nIII. Third item\n";
+    let html = lex_to_html(lex_src, HtmlTheme::Modern);
+
+    assert!(
+        html.contains("<ol") && html.contains("type=\"I\""),
+        "Uppercase roman list should have type=\"I\": {html}"
+    );
+}
+
+#[test]
+fn test_numeric_list_no_type_attr() {
+    let lex_src = "1. First item\n2. Second item\n";
+    let html = lex_to_html(lex_src, HtmlTheme::Modern);
+
+    assert!(html.contains("<ol"), "Should be an ordered list");
+    assert!(
+        !html.contains("type="),
+        "Numeric lists should not have a type attribute: {html}"
+    );
+}
+
+#[test]
+fn test_bullet_list_is_ul() {
+    let lex_src = "- First item\n- Second item\n";
+    let html = lex_to_html(lex_src, HtmlTheme::Modern);
+
+    assert!(html.contains("<ul"), "Bullet list should use <ul>");
+    assert!(!html.contains("<ol"), "Bullet list should not use <ol>");
+}
+
+// ============================================================================
 // BEYOND-H6 DEEP SESSION TESTS
 // ============================================================================
 
