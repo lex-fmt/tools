@@ -45,7 +45,7 @@ pub struct HelpResponse {
 ///
 /// Returns `io::Error` if the documentation directories cannot be read.
 pub fn query_help(topic: Option<&str>) -> io::Result<HelpResponse> {
-    let files = discover_files(&["docs", "specs"])?;
+    let files = discover_files(&["comms/docs", "comms/specs"])?;
     let matches = match topic {
         Some(keyword) => filter_by_topic(&files, keyword),
         None => default_entries(&files),

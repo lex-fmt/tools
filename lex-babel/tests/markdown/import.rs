@@ -250,7 +250,7 @@ fn test_annotation_round_trip() {
 #[test]
 fn test_trifecta_010_round_trip() {
     let lex_src =
-        std::fs::read_to_string("../specs/v1/trifecta/010-paragraphs-sessions-flat-single.lex")
+        std::fs::read_to_string("../comms/specs/trifecta/010-paragraphs-sessions-flat-single.lex")
             .expect("trifecta 010 file should exist");
 
     let lex_doc = lex_core::lex::transforms::standard::STRING_TO_AST
@@ -300,9 +300,10 @@ fn test_trifecta_010_round_trip() {
 
 #[test]
 fn test_trifecta_020_round_trip() {
-    let lex_src =
-        std::fs::read_to_string("../specs/v1/trifecta/020-paragraphs-sessions-flat-multiple.lex")
-            .expect("trifecta 020 file should exist");
+    let lex_src = std::fs::read_to_string(
+        "../comms/specs/trifecta/020-paragraphs-sessions-flat-multiple.lex",
+    )
+    .expect("trifecta 020 file should exist");
 
     let lex_doc = lex_core::lex::transforms::standard::STRING_TO_AST
         .run(lex_src.to_string())
@@ -345,7 +346,7 @@ fn test_trifecta_020_round_trip() {
 
 #[test]
 fn test_trifecta_060_nesting_round_trip() {
-    let lex_src = std::fs::read_to_string("../specs/v1/trifecta/060-trifecta-nesting.lex")
+    let lex_src = std::fs::read_to_string("../comms/specs/trifecta/060-trifecta-nesting.lex")
         .expect("trifecta 060 file should exist");
 
     let lex_doc = lex_core::lex::transforms::standard::STRING_TO_AST
@@ -399,7 +400,7 @@ fn test_trifecta_060_nesting_round_trip() {
 
 #[test]
 fn test_kitchensink_round_trip() {
-    let lex_src = std::fs::read_to_string("../specs/v1/benchmark/010-kitchensink.lex")
+    let lex_src = std::fs::read_to_string("../comms/specs/benchmark/010-kitchensink.lex")
         .expect("kitchensink file should exist");
 
     let lex_doc = lex_core::lex::transforms::standard::STRING_TO_AST
@@ -640,15 +641,15 @@ fn test_lex_validity_trifecta_round_trips() {
     for (name, path) in [
         (
             "trifecta_010",
-            "../specs/v1/trifecta/010-paragraphs-sessions-flat-single.lex",
+            "../comms/specs/trifecta/010-paragraphs-sessions-flat-single.lex",
         ),
         (
             "trifecta_020",
-            "../specs/v1/trifecta/020-paragraphs-sessions-flat-multiple.lex",
+            "../comms/specs/trifecta/020-paragraphs-sessions-flat-multiple.lex",
         ),
         (
             "trifecta_060",
-            "../specs/v1/trifecta/060-trifecta-nesting.lex",
+            "../comms/specs/trifecta/060-trifecta-nesting.lex",
         ),
     ] {
         let lex_src =
@@ -663,7 +664,7 @@ fn test_lex_validity_trifecta_round_trips() {
 
 #[test]
 fn test_lex_validity_kitchensink() {
-    let lex_src = std::fs::read_to_string("../specs/v1/benchmark/010-kitchensink.lex")
+    let lex_src = std::fs::read_to_string("../comms/specs/benchmark/010-kitchensink.lex")
         .expect("kitchensink file should exist");
     let lex_doc = lex_core::lex::transforms::standard::STRING_TO_AST
         .run(lex_src.to_string())

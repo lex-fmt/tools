@@ -34,7 +34,7 @@ printf '%%PDF-1.7\n%%%%EOF\n' > "$OUTPUT"
 
         let mut cmd = cargo_bin_cmd!("lex");
         cmd.env("LEX_CHROME_BIN", &chrome_stub)
-            .arg("../specs/v1/benchmark/010-kitchensink.lex")
+            .arg("../comms/specs/benchmark/010-kitchensink.lex")
             .arg("--to")
             .arg("pdf")
             .arg("-o")
@@ -52,7 +52,7 @@ printf '%%PDF-1.7\n%%%%EOF\n' > "$OUTPUT"
         let (_dir, chrome_stub) = write_stub_chrome();
         let mut cmd = cargo_bin_cmd!("lex");
         cmd.env("LEX_CHROME_BIN", &chrome_stub)
-            .arg("../specs/v1/benchmark/010-kitchensink.lex")
+            .arg("../comms/specs/benchmark/010-kitchensink.lex")
             .arg("--to")
             .arg("pdf");
 

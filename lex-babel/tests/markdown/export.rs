@@ -107,7 +107,7 @@ fn test_heading_and_paragraph_separation() {
 #[test]
 fn test_trifecta_010_paragraphs_sessions_flat_single() {
     let lex_src =
-        std::fs::read_to_string("../specs/v1/trifecta/010-paragraphs-sessions-flat-single.lex")
+        std::fs::read_to_string("../comms/specs/trifecta/010-paragraphs-sessions-flat-single.lex")
             .expect("trifecta 010 file should exist");
 
     let arena = Arena::new();
@@ -166,9 +166,10 @@ fn test_trifecta_010_paragraphs_sessions_flat_single() {
 
 #[test]
 fn test_trifecta_020_paragraphs_sessions_flat_multiple() {
-    let lex_src =
-        std::fs::read_to_string("../specs/v1/trifecta/020-paragraphs-sessions-flat-multiple.lex")
-            .expect("trifecta 020 file should exist");
+    let lex_src = std::fs::read_to_string(
+        "../comms/specs/trifecta/020-paragraphs-sessions-flat-multiple.lex",
+    )
+    .expect("trifecta 020 file should exist");
 
     let arena = Arena::new();
     let root = lex_to_comrak_ast(&lex_src, &arena);
@@ -207,7 +208,7 @@ fn test_trifecta_020_paragraphs_sessions_flat_multiple() {
 
 #[test]
 fn test_trifecta_060_nesting() {
-    let lex_src = std::fs::read_to_string("../specs/v1/trifecta/060-trifecta-nesting.lex")
+    let lex_src = std::fs::read_to_string("../comms/specs/trifecta/060-trifecta-nesting.lex")
         .expect("trifecta 060 file should exist");
 
     let arena = Arena::new();
@@ -267,7 +268,7 @@ fn test_trifecta_060_nesting() {
 
 #[test]
 fn test_kitchensink() {
-    let lex_src = std::fs::read_to_string("../specs/v1/benchmark/010-kitchensink.lex")
+    let lex_src = std::fs::read_to_string("../comms/specs/benchmark/010-kitchensink.lex")
         .expect("kitchensink file should exist");
 
     let arena = Arena::new();
@@ -288,7 +289,7 @@ fn test_kitchensink() {
 
 #[test]
 fn test_kitchensink_snapshot() {
-    let lex_src = std::fs::read_to_string("../specs/v1/benchmark/010-kitchensink.lex")
+    let lex_src = std::fs::read_to_string("../comms/specs/benchmark/010-kitchensink.lex")
         .expect("kitchensink file should exist");
 
     let lex_doc = STRING_TO_AST.run(lex_src.to_string()).unwrap();
@@ -414,7 +415,7 @@ fn test_list_with_multi_paragraph_items() {
 fn test_document_title_exported_as_h1() {
     // Use spec file: document with explicit title should export with H1 heading
     let lex_src = std::fs::read_to_string(
-        "../specs/v1/elements/document.docs/document-01-title-explicit.lex",
+        "../comms/specs/elements/document.docs/document-01-title-explicit.lex",
     )
     .expect("document-01 spec file should exist");
     let lex_doc = STRING_TO_AST.run(lex_src).unwrap();
@@ -430,9 +431,10 @@ fn test_document_title_exported_as_h1() {
 #[test]
 fn test_document_first_paragraph_as_title() {
     // Use spec file: first paragraph followed by blank line becomes document title
-    let lex_src =
-        std::fs::read_to_string("../specs/v1/elements/document.docs/document-06-title-empty.lex")
-            .expect("document-06 spec file should exist");
+    let lex_src = std::fs::read_to_string(
+        "../comms/specs/elements/document.docs/document-06-title-empty.lex",
+    )
+    .expect("document-06 spec file should exist");
     let lex_doc = STRING_TO_AST.run(lex_src).unwrap();
     let md = MarkdownFormat.serialize(&lex_doc).unwrap();
 
@@ -447,7 +449,7 @@ fn test_document_first_paragraph_as_title() {
 fn test_document_session_only_no_h1_title() {
     // Use spec file: document starts with session (no explicit document title)
     let lex_src = std::fs::read_to_string(
-        "../specs/v1/elements/document.docs/document-05-title-session-hoist.lex",
+        "../comms/specs/elements/document.docs/document-05-title-session-hoist.lex",
     )
     .expect("document-05 spec file should exist");
     let lex_doc = STRING_TO_AST.run(lex_src).unwrap();

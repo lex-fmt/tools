@@ -7,7 +7,7 @@ use std::fs;
 fn test_element_at_basic() {
     let mut cmd = cargo_bin_cmd!("lex");
     cmd.arg("element-at")
-        .arg("../specs/v1/benchmark/010-kitchensink.lex")
+        .arg("../comms/specs/benchmark/010-kitchensink.lex")
         .arg("17")
         .arg("5");
 
@@ -20,7 +20,7 @@ fn test_element_at_basic() {
 fn test_element_at_with_all_flag() {
     let mut cmd = cargo_bin_cmd!("lex");
     cmd.arg("element-at")
-        .arg("../specs/v1/benchmark/010-kitchensink.lex")
+        .arg("../comms/specs/benchmark/010-kitchensink.lex")
         .arg("17")
         .arg("5")
         .arg("--all");
@@ -35,7 +35,7 @@ fn test_element_at_with_all_flag() {
 fn test_element_at_no_element_found() {
     let mut cmd = cargo_bin_cmd!("lex");
     cmd.arg("element-at")
-        .arg("../specs/v1/benchmark/010-kitchensink.lex")
+        .arg("../comms/specs/benchmark/010-kitchensink.lex")
         .arg("10000")
         .arg("10000");
 
@@ -49,7 +49,7 @@ fn test_element_at_no_element_found() {
 fn test_element_at_missing_arguments() {
     let mut cmd = cargo_bin_cmd!("lex");
     cmd.arg("element-at")
-        .arg("specs/v1/benchmark/010-kitchensink.lex");
+        .arg("comms/specs/benchmark/010-kitchensink.lex");
 
     cmd.assert().failure();
 }
