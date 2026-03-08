@@ -1,9 +1,14 @@
 use lex_babel::formats::lex::export;
+use lex_babel::transforms::serialize_to_lex;
 use lex_core::lex::ast::elements::container::{GeneralContainer, ListContainer, SessionContainer};
 use lex_core::lex::ast::elements::sequence_marker::{
     DecorationStyle, Form, Separator, SequenceMarker,
 };
-use lex_core::lex::ast::elements::typed_content::{ContentElement, SessionContent};
+use lex_core::lex::ast::elements::typed_content::{
+    ContentElement, SessionContent, VerbatimContent,
+};
+use lex_core::lex::ast::elements::verbatim::VerbatimBlockMode;
+use lex_core::lex::ast::elements::verbatim_line::VerbatimLine;
 use lex_core::lex::ast::elements::BlankLineGroup;
 use lex_core::lex::ast::*;
 use lex_core::lex::parsing::parse_document;
@@ -34,6 +39,20 @@ fn list_item_strategy() -> impl Strategy<Value = ListItem> {
     })
 }
 
+fn list_item_with_children_strategy() -> impl Strategy<Value = ListItem> {
+    ("[a-zA-Z0-9]+( [a-zA-Z0-9]+)*", paragraph_strategy()).prop_map(|(text, para)| {
+        let mut children = GeneralContainer::empty();
+        children.push(ContentItem::Paragraph(para));
+        ListItem {
+            marker: TextContent::from_string("-".to_string(), None),
+            text: vec![TextContent::from_string(format!("{text}\n"), None)],
+            children,
+            annotations: vec![],
+            location: Default::default(),
+        }
+    })
+}
+
 fn list_strategy() -> impl Strategy<Value = List> {
     prop::collection::vec(list_item_strategy(), 2..5).prop_map(|items| {
         let mut list_container = ListContainer::empty();
@@ -53,15 +72,71 @@ fn list_strategy() -> impl Strategy<Value = List> {
     })
 }
 
-fn session_strategy() -> impl Strategy<Value = Session> {
-    let content_strategy = prop_oneof![
+fn definition_strategy() -> impl Strategy<Value = Definition> {
+    (
+        "[A-Z][a-zA-Z0-9 ]*".prop_map(|s| s.trim_end().to_string()),
+        prop::collection::vec(
+            paragraph_strategy().prop_map(ContentElement::Paragraph),
+            1..3,
+        ),
+    )
+        .prop_map(|(subject, children)| {
+            // Insert blank line groups between children so parser
+            // recognizes them as separate paragraphs
+            let mut spaced_children = Vec::new();
+            for (i, child) in children.into_iter().enumerate() {
+                if i > 0 {
+                    spaced_children.push(ContentElement::BlankLineGroup(BlankLineGroup {
+                        count: 1,
+                        source_tokens: vec![],
+                        location: Default::default(),
+                    }));
+                }
+                spaced_children.push(child);
+            }
+            Definition::new(TextContent::from_string(subject, None), spaced_children)
+        })
+}
+
+fn label_strategy() -> impl Strategy<Value = Label> {
+    "[a-z][a-z0-9_-]{0,8}".prop_map(Label::new)
+}
+
+fn verbatim_strategy() -> impl Strategy<Value = Verbatim> {
+    (
+        "[A-Z][a-zA-Z0-9 ]*".prop_map(|s| s.trim_end().to_string()),
+        label_strategy(),
+        prop::collection::vec("[a-zA-Z][a-zA-Z0-9 ]*", 1..4),
+    )
+        .prop_map(|(subject, label, lines)| {
+            let verbatim_lines: Vec<VerbatimContent> = lines
+                .into_iter()
+                .map(|l| VerbatimContent::VerbatimLine(VerbatimLine::new(l)))
+                .collect();
+            let closing_data = Data::new(label, vec![]);
+            Verbatim::new(
+                TextContent::from_string(subject, None),
+                verbatim_lines,
+                closing_data,
+                VerbatimBlockMode::Inflow,
+            )
+        })
+}
+
+/// Session content: paragraphs and lists only (the proven baseline).
+/// Definitions and verbatim blocks are tested separately via dedicated round-trip
+/// tests because their nesting/indentation semantics require careful spacing.
+fn session_content_strategy() -> impl Strategy<Value = SessionContent> {
+    prop_oneof![
         paragraph_strategy().prop_map(|p| SessionContent::Element(ContentElement::Paragraph(p))),
         list_strategy().prop_map(|l| SessionContent::Element(ContentElement::List(l))),
-    ];
+    ]
+}
 
+fn session_strategy() -> impl Strategy<Value = Session> {
     (
         "[a-zA-Z0-9]+",
-        prop::collection::vec(content_strategy, 1..3).prop_filter(
+        prop::collection::vec(session_content_strategy(), 1..3).prop_filter(
             "No consecutive lists",
             |items| {
                 let mut prev_was_list = false;
@@ -99,6 +174,40 @@ fn session_strategy() -> impl Strategy<Value = Session> {
         })
 }
 
+fn nested_session_strategy() -> impl Strategy<Value = Session> {
+    (
+        "[a-zA-Z0-9]+",
+        prop::collection::vec(
+            paragraph_strategy()
+                .prop_map(|p| SessionContent::Element(ContentElement::Paragraph(p))),
+            1..2,
+        ),
+        session_strategy(),
+    )
+        .prop_map(|(title, content, child_session)| {
+            let mut spaced_content: Vec<SessionContent> = Vec::new();
+            for c in content {
+                spaced_content.push(c);
+                spaced_content.push(SessionContent::Element(ContentElement::BlankLineGroup(
+                    BlankLineGroup {
+                        count: 1,
+                        source_tokens: vec![],
+                        location: Default::default(),
+                    },
+                )));
+            }
+            spaced_content.push(SessionContent::Session(child_session));
+
+            Session {
+                title: TextContent::from_string(title, None),
+                marker: None,
+                children: SessionContainer::from_typed(spaced_content),
+                annotations: vec![],
+                location: Default::default(),
+            }
+        })
+}
+
 fn document_strategy() -> impl Strategy<Value = Document> {
     prop::collection::vec(session_strategy(), 1..3).prop_map(|sessions| {
         let mut doc = Document::new();
@@ -109,8 +218,18 @@ fn document_strategy() -> impl Strategy<Value = Document> {
     })
 }
 
+fn document_with_nested_sessions_strategy() -> impl Strategy<Value = Document> {
+    prop::collection::vec(nested_session_strategy(), 1..2).prop_map(|sessions| {
+        let mut doc = Document::new();
+        doc.root.children = SessionContainer::from_typed(
+            sessions.into_iter().map(SessionContent::Session).collect(),
+        );
+        doc
+    })
+}
+
 // -----------------------------------------------------------------------------
-// The Round-Trip Test
+// The Round-Trip Tests
 // -----------------------------------------------------------------------------
 
 proptest! {
@@ -118,22 +237,165 @@ proptest! {
 
     #[test]
     fn test_round_trip_holy_grail(ast in document_strategy()) {
-        println!("Running round-trip for generated doc:\n{:#?}", ast);
         let serialized = export(&ast).expect("Serialization should not fail");
         let parsed = parse_document(&serialized).expect("Parsing should not fail");
 
-        // The exact AST equality check.
-        // The parser doesn't perfectly preserve locations back to 'empty' defaults,
-        // and may synthesize blank line groups between blocks. We check semantic
-        // equivalence instead of exact deep equality containing syntethics/locations.
-        // equivalence instead of exact deep equality containing synthetics/locations.
-
-
-        // But as a first step, let's just make sure it parses the output back into an AST!
         assert!(!parsed.root.children.is_empty());
 
-        // Assert recursive equivalence ignoring positional locations.
         let e_items: Vec<&ContentItem> = ast.root.children.iter().collect();
+        let a_items: Vec<&ContentItem> = parsed.root.children.iter().collect();
+        assert_ast_equiv(&e_items, &a_items, &serialized);
+    }
+
+    #[test]
+    fn test_round_trip_nested_sessions(ast in document_with_nested_sessions_strategy()) {
+        let serialized = export(&ast).expect("Serialization should not fail");
+        let parsed = parse_document(&serialized).expect("Parsing should not fail");
+
+        assert!(!parsed.root.children.is_empty());
+
+        let e_items: Vec<&ContentItem> = ast.root.children.iter().collect();
+        let a_items: Vec<&ContentItem> = parsed.root.children.iter().collect();
+        assert_ast_equiv(&e_items, &a_items, &serialized);
+    }
+}
+
+// Standalone tests for individual element round-trips
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(100))]
+
+    #[test]
+    fn test_round_trip_definition(def in definition_strategy()) {
+        let mut doc = Document::new();
+        doc.root.children = SessionContainer::from_typed(vec![
+            SessionContent::Element(ContentElement::Definition(def)),
+        ]);
+
+        let serialized = export(&doc).expect("Serialization should not fail");
+        let parsed = parse_document(&serialized).expect("Parsing should not fail");
+
+        let e_items: Vec<&ContentItem> = doc.root.children.iter().collect();
+        let a_items: Vec<&ContentItem> = parsed.root.children.iter().collect();
+        assert_ast_equiv(&e_items, &a_items, &serialized);
+    }
+
+    #[test]
+    fn test_round_trip_verbatim(verb in verbatim_strategy()) {
+        let mut doc = Document::new();
+        doc.root.children = SessionContainer::from_typed(vec![
+            SessionContent::Element(ContentElement::VerbatimBlock(Box::new(verb))),
+        ]);
+
+        let serialized = export(&doc).expect("Serialization should not fail");
+        let parsed = parse_document(&serialized).expect("Parsing should not fail");
+
+        let e_items: Vec<&ContentItem> = doc.root.children.iter().collect();
+        let a_items: Vec<&ContentItem> = parsed.root.children.iter().collect();
+        assert_ast_equiv(&e_items, &a_items, &serialized);
+    }
+
+    #[test]
+    fn test_round_trip_list_with_children(
+        item1 in list_item_with_children_strategy(),
+        item2 in list_item_strategy(),
+    ) {
+        let mut list_container = ListContainer::empty();
+        list_container.push(ContentItem::ListItem(item1));
+        list_container.push(ContentItem::ListItem(item2));
+        let mut list = List::new(vec![]);
+        list.items = list_container;
+        list.marker = Some(SequenceMarker {
+            raw_text: TextContent::from_string("-".to_string(), None),
+            style: DecorationStyle::Plain,
+            separator: Separator::Period,
+            form: Form::Short,
+            location: Default::default(),
+        });
+
+        let mut doc = Document::new();
+        doc.root.children = SessionContainer::from_typed(vec![
+            SessionContent::Element(ContentElement::List(list)),
+        ]);
+
+        let serialized = export(&doc).expect("Serialization should not fail");
+        let parsed = parse_document(&serialized).expect("Parsing should not fail");
+
+        let e_items: Vec<&ContentItem> = doc.root.children.iter().collect();
+        let a_items: Vec<&ContentItem> = parsed.root.children.iter().collect();
+        assert_ast_equiv(&e_items, &a_items, &serialized);
+    }
+}
+
+// Definitions and verbatim inside sessions
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(50))]
+
+    #[test]
+    fn test_round_trip_session_with_definition(
+        title in "[a-zA-Z0-9]+",
+        def in definition_strategy(),
+    ) {
+        let content = vec![
+            SessionContent::Element(ContentElement::Definition(def)),
+            SessionContent::Element(ContentElement::BlankLineGroup(BlankLineGroup {
+                count: 1,
+                source_tokens: vec![],
+                location: Default::default(),
+            })),
+        ];
+        let session = Session {
+            title: TextContent::from_string(title, None),
+            marker: None,
+            children: SessionContainer::from_typed(content),
+            annotations: vec![],
+            location: Default::default(),
+        };
+
+        let mut doc = Document::new();
+        doc.root.children = SessionContainer::from_typed(vec![
+            SessionContent::Session(session),
+        ]);
+
+        let serialized = export(&doc).expect("Serialization should not fail");
+        let parsed = parse_document(&serialized).expect("Parsing should not fail");
+
+        let e_items: Vec<&ContentItem> = doc.root.children.iter().collect();
+        let a_items: Vec<&ContentItem> = parsed.root.children.iter().collect();
+        assert_ast_equiv(&e_items, &a_items, &serialized);
+    }
+
+    #[test]
+    fn test_round_trip_session_with_verbatim(
+        title in "[a-zA-Z0-9]+",
+        verb in verbatim_strategy(),
+    ) {
+        let content = vec![
+            SessionContent::Element(ContentElement::VerbatimBlock(Box::new(verb))),
+            SessionContent::Element(ContentElement::BlankLineGroup(BlankLineGroup {
+                count: 1,
+                source_tokens: vec![],
+                location: Default::default(),
+            })),
+        ];
+        let session = Session {
+            title: TextContent::from_string(title, None),
+            marker: None,
+            children: SessionContainer::from_typed(content),
+            annotations: vec![],
+            location: Default::default(),
+        };
+
+        let mut doc = Document::new();
+        doc.root.children = SessionContainer::from_typed(vec![
+            SessionContent::Session(session),
+        ]);
+
+        let serialized = export(&doc).expect("Serialization should not fail");
+        let parsed = parse_document(&serialized).expect("Parsing should not fail");
+
+        let e_items: Vec<&ContentItem> = doc.root.children.iter().collect();
         let a_items: Vec<&ContentItem> = parsed.root.children.iter().collect();
         assert_ast_equiv(&e_items, &a_items, &serialized);
     }
@@ -144,16 +406,10 @@ proptest! {
 // -----------------------------------------------------------------------------
 
 fn assert_ast_equiv(expected: &[&ContentItem], actual: &[&ContentItem], lex_string: &str) {
-    // Filter out synthesized blank line groups from parsing results
-    // and potentially empty generated lists
+    // Filter out synthesized blank line groups
     let filtered_expected: Vec<&ContentItem> = expected
         .iter()
-        .filter(|&&item| {
-            if let ContentItem::BlankLineGroup(_) = item {
-                return false;
-            }
-            true
-        })
+        .filter(|&&item| !matches!(item, ContentItem::BlankLineGroup(_)))
         .copied()
         .collect();
 
@@ -202,11 +458,144 @@ fn assert_ast_equiv(expected: &[&ContentItem], actual: &[&ContentItem], lex_stri
                 let a_children: Vec<&ContentItem> = a_s.children.iter().collect();
                 assert_ast_equiv(&e_children, &a_children, lex_string);
             }
-            // More variants (Verbatim, Definition, Annotation) go here when added...
+            (ContentItem::Definition(e_d), ContentItem::Definition(a_d)) => {
+                assert_eq!(
+                    e_d.subject.as_string(),
+                    a_d.subject.as_string(),
+                    "Definition subject mismatch"
+                );
+                let e_children: Vec<&ContentItem> = e_d.children.iter().collect();
+                let a_children: Vec<&ContentItem> = a_d.children.iter().collect();
+                assert_ast_equiv(&e_children, &a_children, lex_string);
+            }
+            (ContentItem::VerbatimBlock(e_v), ContentItem::VerbatimBlock(a_v)) => {
+                assert_eq!(
+                    e_v.subject.as_string(),
+                    a_v.subject.as_string(),
+                    "Verbatim subject mismatch"
+                );
+                assert_eq!(
+                    e_v.closing_data.label.value,
+                    a_v.closing_data.label.value,
+                    "Verbatim closing label mismatch"
+                );
+                // Compare verbatim line content
+                let e_lines: Vec<&str> = e_v
+                    .children
+                    .iter()
+                    .filter_map(|c| {
+                        if let ContentItem::VerbatimLine(vl) = c {
+                            Some(vl.content.as_string())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                let a_lines: Vec<&str> = a_v
+                    .children
+                    .iter()
+                    .filter_map(|c| {
+                        if let ContentItem::VerbatimLine(vl) = c {
+                            Some(vl.content.as_string())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                assert_eq!(e_lines, a_lines, "Verbatim content mismatch");
+            }
+            (ContentItem::Annotation(e_a), ContentItem::Annotation(a_a)) => {
+                assert_eq!(
+                    e_a.data.label.value, a_a.data.label.value,
+                    "Annotation label mismatch"
+                );
+                assert_eq!(
+                    e_a.data.parameters.len(),
+                    a_a.data.parameters.len(),
+                    "Annotation parameter count mismatch"
+                );
+                for (ep, ap) in e_a
+                    .data
+                    .parameters
+                    .iter()
+                    .zip(a_a.data.parameters.iter())
+                {
+                    assert_eq!(ep.key, ap.key, "Annotation parameter key mismatch");
+                    assert_eq!(ep.value, ap.value, "Annotation parameter value mismatch");
+                }
+                let e_children: Vec<&ContentItem> = e_a.children.iter().collect();
+                let a_children: Vec<&ContentItem> = a_a.children.iter().collect();
+                assert_ast_equiv(&e_children, &a_children, lex_string);
+            }
             _ => panic!(
-                "AST node types do not match or are not supported. Expected: {:?}, Actual: {:?}",
+                "AST node types do not match or are not supported.\nExpected: {}\nActual: {}\nLex:\n{lex_string}",
                 exp, act
             ),
         }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Formatting Idempotency (Priority 4)
+// -----------------------------------------------------------------------------
+// Property: format(parse(format(ast))) == format(ast)
+// If we serialize an AST to lex, then parse and re-serialize, the text should
+// be identical. This ensures the formatter is idempotent.
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(100))]
+
+    #[test]
+    fn test_format_idempotency_sessions(ast in document_strategy()) {
+        let formatted_1 = serialize_to_lex(&ast).expect("First serialization should not fail");
+        let parsed = parse_document(&formatted_1).expect("Parsing formatted output should not fail");
+        let formatted_2 = serialize_to_lex(&parsed).expect("Second serialization should not fail");
+        assert_eq!(
+            formatted_1, formatted_2,
+            "Formatting is not idempotent!\nFirst:\n{formatted_1}\nSecond:\n{formatted_2}"
+        );
+    }
+
+    #[test]
+    fn test_format_idempotency_nested_sessions(ast in document_with_nested_sessions_strategy()) {
+        let formatted_1 = serialize_to_lex(&ast).expect("First serialization should not fail");
+        let parsed = parse_document(&formatted_1).expect("Parsing formatted output should not fail");
+        let formatted_2 = serialize_to_lex(&parsed).expect("Second serialization should not fail");
+        assert_eq!(
+            formatted_1, formatted_2,
+            "Formatting is not idempotent!\nFirst:\n{formatted_1}\nSecond:\n{formatted_2}"
+        );
+    }
+
+    #[test]
+    fn test_format_idempotency_definitions(def in definition_strategy()) {
+        let mut doc = Document::new();
+        doc.root.children = SessionContainer::from_typed(vec![
+            SessionContent::Element(ContentElement::Definition(def)),
+        ]);
+
+        let formatted_1 = serialize_to_lex(&doc).expect("First serialization should not fail");
+        let parsed = parse_document(&formatted_1).expect("Parsing formatted output should not fail");
+        let formatted_2 = serialize_to_lex(&parsed).expect("Second serialization should not fail");
+        assert_eq!(
+            formatted_1, formatted_2,
+            "Formatting is not idempotent!\nFirst:\n{formatted_1}\nSecond:\n{formatted_2}"
+        );
+    }
+
+    #[test]
+    fn test_format_idempotency_verbatim(verb in verbatim_strategy()) {
+        let mut doc = Document::new();
+        doc.root.children = SessionContainer::from_typed(vec![
+            SessionContent::Element(ContentElement::VerbatimBlock(Box::new(verb))),
+        ]);
+
+        let formatted_1 = serialize_to_lex(&doc).expect("First serialization should not fail");
+        let parsed = parse_document(&formatted_1).expect("Parsing formatted output should not fail");
+        let formatted_2 = serialize_to_lex(&parsed).expect("Second serialization should not fail");
+        assert_eq!(
+            formatted_1, formatted_2,
+            "Formatting is not idempotent!\nFirst:\n{formatted_1}\nSecond:\n{formatted_2}"
+        );
     }
 }
