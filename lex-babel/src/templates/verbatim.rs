@@ -83,7 +83,7 @@ pub fn build_verbatim_snippet(request: &VerbatimSnippetRequest<'_>) -> io::Resul
     text.push(' ');
     text.push_str("src=\"");
     text.push_str(&normalized_path);
-    text.push_str("\"\n");
+    text.push_str("\" ::\n");
 
     Ok(VerbatimSnippet {
         language,
@@ -186,6 +186,7 @@ mod tests {
         let request = VerbatimSnippetRequest::new(file.as_path(), &rules);
         let snippet = build_verbatim_snippet(&request).unwrap();
         assert!(snippet.text.contains(":: rust"));
+        assert!(snippet.text.contains("\" ::"), "closing :: marker missing");
         assert_eq!(snippet.language, "rust");
     }
 
