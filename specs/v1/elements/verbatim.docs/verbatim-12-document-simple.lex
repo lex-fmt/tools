@@ -18,8 +18,7 @@ This document tests the combination of all three core elements (sessions, paragr
 		$ cd <path to go>
     Feeling lost, let's get back home:
 		$ cd ~
-    :: shell
-
+    :: shell ::
 2. Session with List Content {{session-title}}
 
     - First list item {{list-item}}
@@ -58,4 +57,4 @@ Final root level paragraph. {{paragraph}}
 
 Say goodbye mom:
 	alert("Goodbye mom!")
-:: javascript
+:: javascript ::

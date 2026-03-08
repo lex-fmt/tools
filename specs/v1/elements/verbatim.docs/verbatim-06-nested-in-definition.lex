@@ -8,6 +8,5 @@ JavaScript Example:
             return () => ++count;
         }
 
-    :: javascript
-
+    :: javascript ::
     This shows a simple closure pattern.

@@ -24,4 +24,4 @@ The next one will be the session title, which, in markdown, should be a heading 
         | Format | Supported | 
         |--------|-----------|
         | Markdown| Yes. |
-    :: doc.table
+    :: doc.table ::
