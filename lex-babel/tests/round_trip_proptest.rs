@@ -1,4 +1,5 @@
 use lex_babel::formats::lex::export;
+use lex_babel::transforms::serialize_to_lex;
 use lex_core::lex::ast::elements::container::{GeneralContainer, ListContainer, SessionContainer};
 use lex_core::lex::ast::elements::sequence_marker::{
     DecorationStyle, Form, Separator, SequenceMarker,
@@ -531,5 +532,70 @@ fn assert_ast_equiv(expected: &[&ContentItem], actual: &[&ContentItem], lex_stri
                 exp, act
             ),
         }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Formatting Idempotency (Priority 4)
+// -----------------------------------------------------------------------------
+// Property: format(parse(format(ast))) == format(ast)
+// If we serialize an AST to lex, then parse and re-serialize, the text should
+// be identical. This ensures the formatter is idempotent.
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(100))]
+
+    #[test]
+    fn test_format_idempotency_sessions(ast in document_strategy()) {
+        let formatted_1 = serialize_to_lex(&ast).expect("First serialization should not fail");
+        let parsed = parse_document(&formatted_1).expect("Parsing formatted output should not fail");
+        let formatted_2 = serialize_to_lex(&parsed).expect("Second serialization should not fail");
+        assert_eq!(
+            formatted_1, formatted_2,
+            "Formatting is not idempotent!\nFirst:\n{formatted_1}\nSecond:\n{formatted_2}"
+        );
+    }
+
+    #[test]
+    fn test_format_idempotency_nested_sessions(ast in document_with_nested_sessions_strategy()) {
+        let formatted_1 = serialize_to_lex(&ast).expect("First serialization should not fail");
+        let parsed = parse_document(&formatted_1).expect("Parsing formatted output should not fail");
+        let formatted_2 = serialize_to_lex(&parsed).expect("Second serialization should not fail");
+        assert_eq!(
+            formatted_1, formatted_2,
+            "Formatting is not idempotent!\nFirst:\n{formatted_1}\nSecond:\n{formatted_2}"
+        );
+    }
+
+    #[test]
+    fn test_format_idempotency_definitions(def in definition_strategy()) {
+        let mut doc = Document::new();
+        doc.root.children = SessionContainer::from_typed(vec![
+            SessionContent::Element(ContentElement::Definition(def)),
+        ]);
+
+        let formatted_1 = serialize_to_lex(&doc).expect("First serialization should not fail");
+        let parsed = parse_document(&formatted_1).expect("Parsing formatted output should not fail");
+        let formatted_2 = serialize_to_lex(&parsed).expect("Second serialization should not fail");
+        assert_eq!(
+            formatted_1, formatted_2,
+            "Formatting is not idempotent!\nFirst:\n{formatted_1}\nSecond:\n{formatted_2}"
+        );
+    }
+
+    #[test]
+    fn test_format_idempotency_verbatim(verb in verbatim_strategy()) {
+        let mut doc = Document::new();
+        doc.root.children = SessionContainer::from_typed(vec![
+            SessionContent::Element(ContentElement::VerbatimBlock(Box::new(verb))),
+        ]);
+
+        let formatted_1 = serialize_to_lex(&doc).expect("First serialization should not fail");
+        let parsed = parse_document(&formatted_1).expect("Parsing formatted output should not fail");
+        let formatted_2 = serialize_to_lex(&parsed).expect("Second serialization should not fail");
+        assert_eq!(
+            formatted_1, formatted_2,
+            "Formatting is not idempotent!\nFirst:\n{formatted_1}\nSecond:\n{formatted_2}"
+        );
     }
 }
