@@ -137,7 +137,12 @@ fn collect_events_from_node<'a>(
 
         NodeValue::List(list) => {
             let ordered = matches!(list.list_type, comrak::nodes::ListType::Ordered);
-            events.push(Event::StartList { ordered });
+            let style = if ordered {
+                crate::ir::nodes::ListStyle::Numeric
+            } else {
+                crate::ir::nodes::ListStyle::Bullet
+            };
+            events.push(Event::StartList { ordered, style });
 
             // Process list items
             for child in node.children() {

@@ -111,7 +111,7 @@ fn test_code_inline() {
 #[test]
 fn test_code_block() {
     let lex_src =
-        "Code Example:\n\n    function hello() {\n        return \"world\";\n    }\n\n:: rust\n";
+        "Code Example:\n\n    function hello() {\n        return \"world\";\n    }\n\n:: rust ::\n";
     let html = lex_to_html(lex_src, HtmlTheme::Modern);
 
     assert!(html.contains("<pre class=\"lex-verbatim\" data-language=\"rust\">"));
@@ -338,6 +338,91 @@ fn test_document_title_session_without_title() {
 
     // Document should fallback to default title (session hoisting not implemented)
     assert!(html.contains("<title>Lex Document</title>"));
+}
+
+// ============================================================================
+// LIST DECORATION STYLE TESTS
+// ============================================================================
+
+#[test]
+fn test_alphabetical_list_html_type() {
+    let lex_src = "a. First item\nb. Second item\nc. Third item\n";
+    let html = lex_to_html(lex_src, HtmlTheme::Modern);
+
+    assert!(
+        html.contains("<ol") && html.contains("type=\"a\""),
+        "Lowercase alpha list should have type=\"a\": {html}"
+    );
+}
+
+#[test]
+fn test_roman_numeral_list_html_type() {
+    let lex_src = "I. First item\nII. Second item\nIII. Third item\n";
+    let html = lex_to_html(lex_src, HtmlTheme::Modern);
+
+    assert!(
+        html.contains("<ol") && html.contains("type=\"I\""),
+        "Uppercase roman list should have type=\"I\": {html}"
+    );
+}
+
+#[test]
+fn test_numeric_list_no_type_attr() {
+    let lex_src = "1. First item\n2. Second item\n";
+    let html = lex_to_html(lex_src, HtmlTheme::Modern);
+
+    assert!(html.contains("<ol"), "Should be an ordered list");
+    assert!(
+        !html.contains("type="),
+        "Numeric lists should not have a type attribute: {html}"
+    );
+}
+
+#[test]
+fn test_bullet_list_is_ul() {
+    let lex_src = "- First item\n- Second item\n";
+    let html = lex_to_html(lex_src, HtmlTheme::Modern);
+
+    assert!(html.contains("<ul"), "Bullet list should use <ul>");
+    assert!(!html.contains("<ol"), "Bullet list should not use <ol>");
+}
+
+// ============================================================================
+// BEYOND-H6 DEEP SESSION TESTS
+// ============================================================================
+
+#[test]
+fn test_deep_session_beyond_h6_gets_class() {
+    // Create a document with 7 levels of session nesting.
+    // Doc title = H1, so root session = H2, and 6 levels deep = H8 → clamped to H6.
+    // Levels > 6 should get class="lex-level-N" for lossless identification.
+    let lex_src = concat!(
+        "1. Level One\n\n",
+        "    1.1. Level Two\n\n",
+        "        1.1.1. Level Three\n\n",
+        "            1.1.1.1. Level Four\n\n",
+        "                1.1.1.1.1. Level Five\n\n",
+        "                    1.1.1.1.1.1. Level Six\n\n",
+        "                        Deep content.\n",
+    );
+    let html = lex_to_html(lex_src, HtmlTheme::Modern);
+
+    // Levels 2-6 should use standard h2-h6 without lex-level class
+    assert!(html.contains("<h2>"), "Level 1 session should be h2");
+
+    // Level 7 (H7 clamped to H6) should have lex-level-7 class
+    // Note: doc title occupies H1, so 6 nested sessions = levels 2..7
+    // Level 7 is the first to exceed H6
+    assert!(
+        html.contains("lex-level-7"),
+        "Session at level 7 must have class lex-level-7 for lossless depth: {html}"
+    );
+
+    // The section wrapper already has lex-session-N for all levels
+    assert!(
+        html.contains("lex-session-7"),
+        "Section wrapper should have lex-session-7 class"
+    );
 }
 
 // ============================================================================

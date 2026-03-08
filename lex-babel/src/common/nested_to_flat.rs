@@ -74,8 +74,15 @@ fn walk_node(node: &DocNode, events: &mut Vec<Event>) {
             emit_inlines(content, events);
             events.push(Event::EndParagraph);
         }
-        DocNode::List(List { items, ordered }) => {
-            events.push(Event::StartList { ordered: *ordered });
+        DocNode::List(List {
+            items,
+            ordered,
+            style,
+        }) => {
+            events.push(Event::StartList {
+                ordered: *ordered,
+                style: *style,
+            });
             for item in items {
                 walk_list_item(item, events);
             }
@@ -233,6 +240,7 @@ fn emit_inlines(inlines: &[InlineContent], events: &mut Vec<Event>) {
 mod tests {
     use super::*;
     use crate::common::flat_to_nested::events_to_tree;
+    use crate::ir::nodes::ListStyle;
 
     fn sample_tree() -> DocNode {
         DocNode::Document(Document {
@@ -253,6 +261,7 @@ mod tests {
                         })],
                     }],
                     ordered: false,
+                    style: ListStyle::Bullet,
                 }),
                 DocNode::Definition(Definition {
                     term: vec![InlineContent::Text("Term".to_string())],
@@ -285,7 +294,10 @@ mod tests {
             Event::EndParagraph,
             Event::EndContent,
             Event::EndHeading(2),
-            Event::StartList { ordered: false },
+            Event::StartList {
+                ordered: false,
+                style: ListStyle::Bullet,
+            },
             Event::StartListItem,
             Event::Inline(InlineContent::Text("Item".to_string())),
             Event::StartContent,

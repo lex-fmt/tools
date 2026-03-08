@@ -461,3 +461,107 @@ fn test_document_session_only_no_h1_title() {
     // Session should be H2
     assert!(md.contains("## "), "Session should be exported as H2");
 }
+
+// ============================================================================
+// SESSION NUMBERING PRESERVATION TESTS
+// ============================================================================
+
+#[test]
+fn test_numbered_session_preserves_numbering() {
+    let lex_src = "1. Introduction\n\n    Content here.\n";
+    let lex_doc = STRING_TO_AST.run(lex_src.to_string()).unwrap();
+    let md = MarkdownFormat.serialize(&lex_doc).unwrap();
+
+    // Heading must contain the numbering
+    assert!(
+        md.contains("## 1"),
+        "Numbered session heading must contain '1' prefix: {md}"
+    );
+    assert!(
+        md.contains("Introduction"),
+        "Heading must contain title text"
+    );
+}
+
+#[test]
+fn test_dotted_numbering_preserved() {
+    let lex_src = "1. Parent\n\n    1.1. Child\n\n        Content.\n";
+    let lex_doc = STRING_TO_AST.run(lex_src.to_string()).unwrap();
+    let md = MarkdownFormat.serialize(&lex_doc).unwrap();
+
+    assert!(md.contains("Parent"), "Parent heading must be present");
+    assert!(
+        md.contains("1.1"),
+        "Dotted numbering '1.1' must be preserved in nested heading: {md}"
+    );
+    assert!(md.contains("Child"), "Child heading text must be present");
+}
+
+#[test]
+fn test_unnumbered_session_no_numbering_added() {
+    let lex_src = "My Session Title\n\n    Content.\n";
+    let lex_doc = STRING_TO_AST.run(lex_src.to_string()).unwrap();
+    let md = MarkdownFormat.serialize(&lex_doc).unwrap();
+
+    // Should have heading with just the title, no added numbering
+    assert!(
+        md.contains("## My Session Title"),
+        "Unnumbered session should export as-is: {md}"
+    );
+}
+
+#[test]
+fn test_numbering_round_trip_lex_md_lex() {
+    let lex_src =
+        "1. First Session\n\n    Paragraph one.\n\n2. Second Session\n\n    Paragraph two.\n";
+    let lex_doc = STRING_TO_AST.run(lex_src.to_string()).unwrap();
+
+    // Export to Markdown
+    let md = MarkdownFormat.serialize(&lex_doc).unwrap();
+    assert!(md.contains("1"), "MD should contain numbering '1'");
+    assert!(md.contains("2"), "MD should contain numbering '2'");
+
+    // Import back to Lex
+    let lex_doc2 = MarkdownFormat.parse(&md).unwrap();
+
+    // Re-export and verify numbering survived
+    let md2 = MarkdownFormat.serialize(&lex_doc2).unwrap();
+    assert!(
+        md2.contains("First Session"),
+        "First session must survive round-trip"
+    );
+    assert!(
+        md2.contains("Second Session"),
+        "Second session must survive round-trip"
+    );
+}
+
+#[test]
+fn test_nested_numbering_round_trip() {
+    let lex_src = concat!(
+        "1. Top Level\n\n",
+        "    Opening paragraph.\n\n",
+        "    1.1. Nested\n\n",
+        "        Nested content.\n\n",
+        "    1.2. Another Nested\n\n",
+        "        More content.\n",
+    );
+    let lex_doc = STRING_TO_AST.run(lex_src.to_string()).unwrap();
+    let md = MarkdownFormat.serialize(&lex_doc).unwrap();
+
+    // Verify heading hierarchy
+    assert!(md.contains("## "), "Top level should be H2");
+    assert!(md.contains("### "), "Nested sessions should be H3: {md}");
+
+    // Verify all titles present with numbering
+    assert!(md.contains("Top Level"), "Top level title present");
+    assert!(md.contains("Nested"), "First nested title present");
+    assert!(md.contains("Another Nested"), "Second nested title present");
+
+    // Round-trip back
+    let lex_doc2 = MarkdownFormat.parse(&md).unwrap();
+    let md2 = MarkdownFormat.serialize(&lex_doc2).unwrap();
+
+    assert!(md2.contains("Top Level"), "Top level survives round-trip");
+    assert!(md2.contains("Nested"), "Nested survives round-trip");
+}

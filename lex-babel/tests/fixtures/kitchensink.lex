@@ -47,8 +47,7 @@ This is a marker annotation at the root level, attached to the definition above.
         function example() {
             return "lex";
         }
-    :: javascript
-
+    :: javascript ::
 2. Second Root Session {{session}}
 
     This session tests annotations with block content and marker-style verbatim blocks. {{paragraph}}

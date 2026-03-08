@@ -38,11 +38,35 @@ pub struct Paragraph {
     pub content: Vec<InlineContent>,
 }
 
+/// Decoration style for ordered lists.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ListStyle {
+    /// Unordered: `-`, `*`, `+`
+    Bullet,
+    /// Numeric: `1.`, `2.`, `3.`
+    Numeric,
+    /// Lowercase alphabetic: `a.`, `b.`, `c.`
+    AlphaLower,
+    /// Uppercase alphabetic: `A.`, `B.`, `C.`
+    AlphaUpper,
+    /// Lowercase roman: `i.`, `ii.`, `iii.`
+    RomanLower,
+    /// Uppercase roman: `I.`, `II.`, `III.`
+    RomanUpper,
+}
+
+impl ListStyle {
+    pub fn is_ordered(self) -> bool {
+        !matches!(self, ListStyle::Bullet)
+    }
+}
+
 /// Represents a list of items.
 #[derive(Debug, Clone, PartialEq)]
 pub struct List {
     pub items: Vec<ListItem>,
     pub ordered: bool,
+    pub style: ListStyle,
 }
 
 /// Represents an item in a list.

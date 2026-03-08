@@ -104,6 +104,7 @@ enum StackNode {
     List {
         items: Vec<ListItem>,
         ordered: bool,
+        style: ListStyle,
     },
     ListItem {
         content: Vec<InlineContent>,
@@ -154,7 +155,15 @@ impl StackNode {
                 children,
             }),
             StackNode::Paragraph { content } => DocNode::Paragraph(Paragraph { content }),
-            StackNode::List { items, ordered } => DocNode::List(List { items, ordered }),
+            StackNode::List {
+                items,
+                ordered,
+                style,
+            } => DocNode::List(List {
+                items,
+                ordered,
+                style,
+            }),
             StackNode::ListItem { content, children } => {
                 DocNode::ListItem(ListItem { content, children })
             }
@@ -595,10 +604,11 @@ pub fn events_to_tree(events: &[Event]) -> Result<Document, ConversionError> {
                 })?;
             }
 
-            Event::StartList { ordered } => {
+            Event::StartList { ordered, style } => {
                 stack.push(StackNode::List {
                     items: vec![],
                     ordered: *ordered,
+                    style: *style,
                 });
             }
 
@@ -969,7 +979,10 @@ mod tests {
     fn test_list_with_items() {
         let events = vec![
             Event::StartDocument,
-            Event::StartList { ordered: false },
+            Event::StartList {
+                ordered: false,
+                style: ListStyle::Bullet,
+            },
             Event::StartListItem,
             Event::Inline(InlineContent::Text("Item 1".to_string())),
             Event::EndListItem,
@@ -1083,7 +1096,10 @@ mod tests {
             Event::StartParagraph,
             Event::Inline(InlineContent::Text("Some text".to_string())),
             Event::EndParagraph,
-            Event::StartList { ordered: false },
+            Event::StartList {
+                ordered: false,
+                style: ListStyle::Bullet,
+            },
             Event::StartListItem,
             Event::Inline(InlineContent::Text("Item".to_string())),
             Event::EndListItem,
@@ -1221,6 +1237,7 @@ mod tests {
                             },
                         ],
                         ordered: false,
+                        style: ListStyle::Bullet,
                     }),
                     DocNode::Definition(Definition {
                         term: vec![InlineContent::Text("Term".to_string())],

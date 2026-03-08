@@ -114,8 +114,15 @@ fn build_html_dom(events: &[Event]) -> Result<RcDom, FormatError> {
                 current_parent = section;
 
                 // Create heading element (h1-h6, max at h6)
-                let heading_tag = format!("h{}", (*level as u8).min(6));
-                let heading = create_element(&heading_tag, vec![]);
+                // For levels > 6, add class attribute to preserve true depth
+                let clamped = (*level as u8).min(6);
+                let heading_tag = format!("h{clamped}");
+                let heading = if *level > 6 {
+                    let class = format!("lex-level-{level}");
+                    create_element(&heading_tag, vec![("class", &class)])
+                } else {
+                    create_element(&heading_tag, vec![])
+                };
                 current_parent.children.borrow_mut().push(heading.clone());
                 current_heading = Some(heading);
             }
@@ -158,10 +165,25 @@ fn build_html_dom(events: &[Event]) -> Result<RcDom, FormatError> {
                 })?;
             }
 
-            Event::StartList { ordered } => {
+            Event::StartList { ordered, style } => {
                 current_heading = None;
                 let tag = if *ordered { "ol" } else { "ul" };
-                let list = create_element(tag, vec![("class", "lex-list")]);
+                // For ordered lists, set the HTML type attribute to preserve decoration style
+                let list = match style {
+                    crate::ir::nodes::ListStyle::AlphaLower => {
+                        create_element(tag, vec![("class", "lex-list"), ("type", "a")])
+                    }
+                    crate::ir::nodes::ListStyle::AlphaUpper => {
+                        create_element(tag, vec![("class", "lex-list"), ("type", "A")])
+                    }
+                    crate::ir::nodes::ListStyle::RomanLower => {
+                        create_element(tag, vec![("class", "lex-list"), ("type", "i")])
+                    }
+                    crate::ir::nodes::ListStyle::RomanUpper => {
+                        create_element(tag, vec![("class", "lex-list"), ("type", "I")])
+                    }
+                    _ => create_element(tag, vec![("class", "lex-list")]),
+                };
                 current_parent.children.borrow_mut().push(list.clone());
                 parent_stack.push(current_parent.clone());
                 current_parent = list;

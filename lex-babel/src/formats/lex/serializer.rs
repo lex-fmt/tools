@@ -339,6 +339,7 @@ impl Visitor for LexSerializer {
                 footer.push_str(&param.value);
             }
         }
+        footer.push_str(" ::");
         self.write_line(&footer);
     }
 }
@@ -646,7 +647,8 @@ mod tests {
     #[test]
     fn test_verbatim_03_table_formatting() {
         // Use standard verbatim syntax: Subject + indented content + closing marker (dedented)
-        let source = "Table Example:\n    | A | B |\n    |---|---|\n    | 1 | 2 |\n:: doc.table\n";
+        let source =
+            "Table Example:\n    | A | B |\n    |---|---|\n    | 1 | 2 |\n:: doc.table ::\n";
         // The serializer should format this table
         let formatted = format_source(source);
 
@@ -658,7 +660,7 @@ mod tests {
         assert!(formatted.contains("| 1   | 2   |"));
 
         // Also test with unformatted input
-        let unformatted = "Table Example:\n    |A|B|\n    |-|-|\n    |1|2|\n:: doc.table\n";
+        let unformatted = "Table Example:\n    |A|B|\n    |-|-|\n    |1|2|\n:: doc.table ::\n";
         let formatted_2 = format_source(unformatted);
 
         // Should be formatted nicely
