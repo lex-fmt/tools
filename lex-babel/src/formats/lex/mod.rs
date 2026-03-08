@@ -63,6 +63,12 @@ impl Format for LexFormat {
     }
 }
 
+/// Convenience function to export a Document AST into a Lex string
+/// using the default formatting rules.
+pub fn export(doc: &Document) -> Result<String, FormatError> {
+    LexFormat::default().serialize(doc)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

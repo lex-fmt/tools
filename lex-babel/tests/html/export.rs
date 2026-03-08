@@ -111,7 +111,7 @@ fn test_code_inline() {
 #[test]
 fn test_code_block() {
     let lex_src =
-        "Code Example:\n\n    function hello() {\n        return \"world\";\n    }\n\n:: rust\n";
+        "Code Example:\n\n    function hello() {\n        return \"world\";\n    }\n\n:: rust ::\n";
     let html = lex_to_html(lex_src, HtmlTheme::Modern);
 
     assert!(html.contains("<pre class=\"lex-verbatim\" data-language=\"rust\">"));
