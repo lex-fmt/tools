@@ -613,11 +613,11 @@ Final paragraph.
     assert_lex_output_valid(md, "complex_document");
 }
 
-/// Lex serializer produces verbatim blocks with empty lines that trigger a
-/// lex-core parser panic ("Cannot compute bounding box from empty token list").
-/// These tests document the bug and will pass once the serializer is fixed.
+/// lex-core <= 0.2.2 panics on empty-subject definitions ("Cannot compute
+/// bounding box from empty token list"). Fixed in lex-fmt/core@c7c78591.
+/// Remove #[ignore] once lex-core is updated past 0.2.2.
 #[test]
-#[ignore = "lex-babel Lex serializer produces empty verbatim lines that crash lex-core parser"]
+#[ignore = "needs lex-core > 0.2.2 (fix: lex-fmt/core#c7c78591)"]
 fn test_lex_validity_reference_fixtures() {
     let commonmark = read_fixture("markdown-reference-commonmark.md");
     assert_lex_output_valid(&commonmark, "commonmark_reference");
@@ -626,9 +626,9 @@ fn test_lex_validity_reference_fixtures() {
     assert_lex_output_valid(&comrak, "comrak_reference");
 }
 
-/// See `test_lex_validity_reference_fixtures` for bug description.
+/// See `test_lex_validity_reference_fixtures` for details.
 #[test]
-#[ignore = "lex-babel Lex serializer produces empty verbatim lines that crash lex-core parser"]
+#[ignore = "needs lex-core > 0.2.2 (fix: lex-fmt/core#c7c78591)"]
 fn test_lex_validity_comrak_readme() {
     let readme = read_fixture("comrak-readme.md");
     assert_lex_output_valid(&readme, "comrak_readme");
