@@ -102,11 +102,33 @@ fn label_strategy() -> impl Strategy<Value = Label> {
     "[a-z][a-z0-9_-]{0,8}".prop_map(Label::new)
 }
 
+/// Generates verbatim content lines that may include internal indentation,
+/// subject-like patterns, annotation-like patterns, and other tricky content
+/// that should be preserved verbatim (not parsed as Lex structure).
+fn verbatim_line_strategy() -> impl Strategy<Value = String> {
+    prop_oneof![
+        // Plain text
+        "[a-zA-Z][a-zA-Z0-9 ]*",
+        // Indented content (code-like)
+        "    [a-zA-Z][a-zA-Z0-9 ]*",
+        // Double-indented content
+        "        [a-zA-Z][a-zA-Z0-9]*",
+        // Subject-like line (ends with colon) — should NOT be parsed as definition
+        "[A-Z][a-zA-Z0-9 ]*:",
+        // List-like line — should NOT be parsed as list item
+        "- [a-zA-Z0-9 ]+",
+        // Mixed indentation (code with nested blocks)
+        "  if [a-z]+ \\{",
+        "    return [a-z]+;",
+        "  \\}",
+    ]
+}
+
 fn verbatim_strategy() -> impl Strategy<Value = Verbatim> {
     (
         "[A-Z][a-zA-Z0-9 ]*".prop_map(|s| s.trim_end().to_string()),
         label_strategy(),
-        prop::collection::vec("[a-zA-Z][a-zA-Z0-9 ]*", 1..4),
+        prop::collection::vec(verbatim_line_strategy(), 1..6),
     )
         .prop_map(|(subject, label, lines)| {
             let verbatim_lines: Vec<VerbatimContent> = lines
@@ -390,6 +412,97 @@ proptest! {
         let mut doc = Document::new();
         doc.root.children = SessionContainer::from_typed(vec![
             SessionContent::Session(session),
+        ]);
+
+        let serialized = export(&doc).expect("Serialization should not fail");
+        let parsed = parse_document(&serialized).expect("Parsing should not fail");
+
+        let e_items: Vec<&ContentItem> = doc.root.children.iter().collect();
+        let a_items: Vec<&ContentItem> = parsed.root.children.iter().collect();
+        assert_ast_equiv(&e_items, &a_items, &serialized);
+    }
+}
+
+// Deep nesting: session > definition > verbatim
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(50))]
+
+    #[test]
+    fn test_round_trip_session_definition_verbatim(
+        session_title in "[a-zA-Z0-9]+",
+        def_subject in "[A-Z][a-zA-Z0-9 ]*".prop_map(|s| s.trim_end().to_string()),
+        verb in verbatim_strategy(),
+    ) {
+        let def = Definition::new(
+            TextContent::from_string(def_subject, None),
+            vec![ContentElement::VerbatimBlock(Box::new(verb))],
+        );
+        let content = vec![
+            SessionContent::Element(ContentElement::Definition(def)),
+            SessionContent::Element(ContentElement::BlankLineGroup(BlankLineGroup {
+                count: 1,
+                source_tokens: vec![],
+                location: Default::default(),
+            })),
+        ];
+        let session = Session {
+            title: TextContent::from_string(session_title, None),
+            marker: None,
+            children: SessionContainer::from_typed(content),
+            annotations: vec![],
+            location: Default::default(),
+        };
+
+        let mut doc = Document::new();
+        doc.root.children = SessionContainer::from_typed(vec![
+            SessionContent::Session(session),
+        ]);
+
+        let serialized = export(&doc).expect("Serialization should not fail");
+        let parsed = parse_document(&serialized).expect("Parsing should not fail");
+
+        let e_items: Vec<&ContentItem> = doc.root.children.iter().collect();
+        let a_items: Vec<&ContentItem> = parsed.root.children.iter().collect();
+        assert_ast_equiv(&e_items, &a_items, &serialized);
+    }
+
+    #[test]
+    fn test_round_trip_nested_session_verbatim(
+        outer_title in "[a-zA-Z0-9]+",
+        inner_title in "[a-zA-Z0-9]+",
+        verb in verbatim_strategy(),
+    ) {
+        let inner_content = vec![
+            SessionContent::Element(ContentElement::VerbatimBlock(Box::new(verb))),
+            SessionContent::Element(ContentElement::BlankLineGroup(BlankLineGroup {
+                count: 1,
+                source_tokens: vec![],
+                location: Default::default(),
+            })),
+        ];
+        let inner_session = Session {
+            title: TextContent::from_string(inner_title, None),
+            marker: None,
+            children: SessionContainer::from_typed(inner_content),
+            annotations: vec![],
+            location: Default::default(),
+        };
+
+        let outer_content = vec![
+            SessionContent::Session(inner_session),
+        ];
+        let outer_session = Session {
+            title: TextContent::from_string(outer_title, None),
+            marker: None,
+            children: SessionContainer::from_typed(outer_content),
+            annotations: vec![],
+            location: Default::default(),
+        };
+
+        let mut doc = Document::new();
+        doc.root.children = SessionContainer::from_typed(vec![
+            SessionContent::Session(outer_session),
         ]);
 
         let serialized = export(&doc).expect("Serialization should not fail");

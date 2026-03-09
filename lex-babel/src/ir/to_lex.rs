@@ -235,7 +235,8 @@ fn to_lex_definition(def: &Definition) -> LexContentItem {
 
 /// Converts an IR Verbatim to a Lex Verbatim block.
 fn to_lex_verbatim(verb: &Verbatim) -> LexContentItem {
-    let subject = TextContent::from_string("".to_string(), None);
+    let subject_text = verb.subject.clone().unwrap_or_default();
+    let subject = TextContent::from_string(subject_text, None);
 
     // Split content into lines and create VerbatimLine items
     let lines: Vec<VerbatimContent> = verb
@@ -433,6 +434,7 @@ mod tests {
     #[test]
     fn test_verbatim_with_language() {
         let ir_verb = Verbatim {
+            subject: None,
             language: Some("rust".to_string()),
             content: "fn main() {}\nlet x = 1;".to_string(),
         };

@@ -49,10 +49,12 @@ This definition is inside a nested session and contains a list. {{definition}}
 
 A paragraph back at the first level of nesting. {{paragraph}}
 
+**Code Example (Verbatim Block)**
+
 ``` javascript
 // This is a verbatim block with code.
 function example() {
-return "lex";
+    return "lex";
 }
 ```
 
@@ -70,6 +72,8 @@ It contains a paragraph and a list. {{paragraph}}
 - Task 2 to complete. {{list-item}} 
 
 <!-- /lex:todo -->
+
+**Image Reference (Marker Verbatim Block)**
 
 ``` image
 ```

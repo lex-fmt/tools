@@ -31,7 +31,10 @@ pub enum Event {
     EndDefinitionTerm,
     StartDefinitionDescription,
     EndDefinitionDescription,
-    StartVerbatim(Option<String>),
+    StartVerbatim {
+        language: Option<String>,
+        subject: Option<String>,
+    },
     EndVerbatim,
     StartAnnotation {
         label: String,

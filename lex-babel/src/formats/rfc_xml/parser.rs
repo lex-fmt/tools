@@ -259,6 +259,7 @@ fn process_definition_list(node: Node, level: usize) -> Result<Vec<DocNode>, For
 fn parse_verbatim(node: Node) -> Result<DocNode, FormatError> {
     let text = node.text().unwrap_or("").to_string();
     Ok(DocNode::Verbatim(Verbatim {
+        subject: None,
         language: node.attribute("type").map(|s| s.to_string()),
         content: text,
     }))
