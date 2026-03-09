@@ -31,3 +31,4 @@ local
 specs/**/*.ast.*
 specs/**/*.treeviz
 specs/**/*.treeviz.*
+lex-babel/proptest-regressions/
