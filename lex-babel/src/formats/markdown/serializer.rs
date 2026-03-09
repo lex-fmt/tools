@@ -237,8 +237,27 @@ fn build_comrak_ast<'a>(
                 list_item_paragraph = None;
             }
 
-            Event::StartVerbatim(language) => {
+            Event::StartVerbatim { language, subject } => {
                 current_heading = None;
+
+                // Render subject as bold text before the code block
+                if let Some(subj) = subject {
+                    let para = arena.alloc(AstNode::new(RefCell::new(Ast::new(
+                        NodeValue::Paragraph,
+                        (0, 0).into(),
+                    ))));
+                    current_parent.append(para);
+                    let strong = arena.alloc(AstNode::new(RefCell::new(Ast::new(
+                        NodeValue::Strong,
+                        (0, 0).into(),
+                    ))));
+                    para.append(strong);
+                    let text = arena.alloc(AstNode::new(RefCell::new(Ast::new(
+                        NodeValue::Text(subj.clone()),
+                        (0, 0).into(),
+                    ))));
+                    strong.append(text);
+                }
 
                 // Check for special metadata comment format
                 if let Some(lang) = &language {

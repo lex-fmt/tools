@@ -86,6 +86,7 @@ pub struct Definition {
 /// Represents a block of verbatim text.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Verbatim {
+    pub subject: Option<String>,
     pub language: Option<String>,
     pub content: String,
 }

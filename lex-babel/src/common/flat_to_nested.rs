@@ -116,6 +116,7 @@ enum StackNode {
         in_term: bool,
     },
     Verbatim {
+        subject: Option<String>,
         language: Option<String>,
         content: String,
     },
@@ -170,7 +171,11 @@ impl StackNode {
             StackNode::Definition {
                 term, description, ..
             } => DocNode::Definition(Definition { term, description }),
-            StackNode::Verbatim { language, content } => {
+            StackNode::Verbatim {
+                subject,
+                language,
+                content,
+            } => {
                 if let Some(lang) = &language {
                     if let Some(label) = lang.strip_prefix("lex-metadata:") {
                         // Convert back to Annotation
@@ -207,7 +212,11 @@ impl StackNode {
                         });
                     }
                 }
-                DocNode::Verbatim(Verbatim { language, content })
+                DocNode::Verbatim(Verbatim {
+                    subject,
+                    language,
+                    content,
+                })
             }
             StackNode::Annotation {
                 label,
@@ -692,8 +701,9 @@ pub fn events_to_tree(events: &[Event]) -> Result<Document, ConversionError> {
                 // Just a marker, no action needed
             }
 
-            Event::StartVerbatim(language) => {
+            Event::StartVerbatim { language, subject } => {
                 stack.push(StackNode::Verbatim {
+                    subject: subject.clone(),
                     language: language.clone(),
                     content: String::new(),
                 });
@@ -1037,7 +1047,10 @@ mod tests {
     fn test_verbatim() {
         let events = vec![
             Event::StartDocument,
-            Event::StartVerbatim(Some("rust".to_string())),
+            Event::StartVerbatim {
+                language: Some("rust".to_string()),
+                subject: None,
+            },
             Event::Inline(InlineContent::Text("fn main() {}".to_string())),
             Event::EndVerbatim,
             Event::EndDocument,

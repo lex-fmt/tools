@@ -168,7 +168,10 @@ fn collect_events_from_node<'a>(
                 Some(code_block.info.clone())
             };
 
-            events.push(Event::StartVerbatim(language));
+            events.push(Event::StartVerbatim {
+                language,
+                subject: None,
+            });
             events.push(Event::Inline(InlineContent::Text(
                 code_block.literal.clone(),
             )));

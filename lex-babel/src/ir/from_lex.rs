@@ -307,6 +307,12 @@ fn from_lex_definition(definition: &LexDefinition, level: usize) -> DocNode {
 
 /// Converts a lex verbatim block to an IR verbatim block.
 fn from_lex_verbatim(verbatim: &LexVerbatim) -> DocNode {
+    let subject_str = verbatim.subject.as_string();
+    let subject = if subject_str.is_empty() {
+        None
+    } else {
+        Some(subject_str.to_string())
+    };
     let language = Some(verbatim.closing_data.label.value.clone());
     let content = verbatim
         .children
@@ -335,7 +341,11 @@ fn from_lex_verbatim(verbatim: &LexVerbatim) -> DocNode {
         }
     }
 
-    DocNode::Verbatim(Verbatim { language, content })
+    DocNode::Verbatim(Verbatim {
+        subject,
+        language,
+        content,
+    })
 }
 
 /// Converts a lex annotation to an IR annotation.
@@ -440,6 +450,7 @@ fn from_lex_text_line(text_line: &LexTextLine) -> DocNode {
 fn from_lex_verbatim_line(verbatim_line: &LexVerbatimLine) -> DocNode {
     let content = verbatim_line.content.as_string().to_string();
     DocNode::Verbatim(Verbatim {
+        subject: None,
         language: None,
         content,
     })

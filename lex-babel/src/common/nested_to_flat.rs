@@ -110,8 +110,15 @@ fn walk_node(node: &DocNode, events: &mut Vec<Event>) {
             events.push(Event::EndDefinitionDescription);
             events.push(Event::EndDefinition);
         }
-        DocNode::Verbatim(Verbatim { language, content }) => {
-            events.push(Event::StartVerbatim(language.clone()));
+        DocNode::Verbatim(Verbatim {
+            subject,
+            language,
+            content,
+        }) => {
+            events.push(Event::StartVerbatim {
+                language: language.clone(),
+                subject: subject.clone(),
+            });
             events.push(Event::Inline(InlineContent::Text(content.clone())));
             events.push(Event::EndVerbatim);
         }
@@ -152,7 +159,10 @@ fn walk_node(node: &DocNode, events: &mut Vec<Event>) {
                     comment_body.push_str(&text_content);
                 }
 
-                events.push(Event::StartVerbatim(Some(format!("lex-metadata:{label}"))));
+                events.push(Event::StartVerbatim {
+                    language: Some(format!("lex-metadata:{label}")),
+                    subject: None,
+                });
                 events.push(Event::Inline(InlineContent::Text(comment_body)));
                 events.push(Event::EndVerbatim);
                 return;
@@ -256,6 +266,7 @@ mod tests {
                     items: vec![ListItem {
                         content: vec![InlineContent::Text("Item".to_string())],
                         children: vec![DocNode::Verbatim(Verbatim {
+                            subject: None,
                             language: Some("rust".to_string()),
                             content: "fn main() {}".to_string(),
                         })],
@@ -301,7 +312,10 @@ mod tests {
             Event::StartListItem,
             Event::Inline(InlineContent::Text("Item".to_string())),
             Event::StartContent,
-            Event::StartVerbatim(Some("rust".to_string())),
+            Event::StartVerbatim {
+                language: Some("rust".to_string()),
+                subject: None,
+            },
             Event::Inline(InlineContent::Text("fn main() {}".to_string())),
             Event::EndVerbatim,
             Event::EndContent,
@@ -319,7 +333,10 @@ mod tests {
             Event::EndContent,
             Event::EndDefinitionDescription,
             Event::EndDefinition,
-            Event::StartVerbatim(Some("lex-metadata:note".to_string())),
+            Event::StartVerbatim {
+                language: Some("lex-metadata:note".to_string()),
+                subject: None,
+            },
             Event::Inline(InlineContent::Text(" key=value\nBody\n".to_string())),
             Event::EndVerbatim,
             Event::EndDocument,

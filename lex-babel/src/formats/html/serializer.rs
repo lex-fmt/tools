@@ -209,11 +209,19 @@ fn build_html_dom(events: &[Event]) -> Result<RcDom, FormatError> {
                 })?;
             }
 
-            Event::StartVerbatim(language) => {
+            Event::StartVerbatim { language, subject } => {
                 current_heading = None;
                 in_verbatim = true;
                 verbatim_language = language.clone();
                 verbatim_content.clear();
+
+                // Render subject as a caption before the code block
+                if let Some(subj) = subject {
+                    let caption = create_element("div", vec![("class", "lex-verbatim-subject")]);
+                    let text = create_text(subj);
+                    caption.children.borrow_mut().push(text);
+                    current_parent.children.borrow_mut().push(caption);
+                }
             }
 
             Event::EndVerbatim => {
