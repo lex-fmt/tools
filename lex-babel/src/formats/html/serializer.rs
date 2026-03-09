@@ -232,16 +232,24 @@ fn build_html_dom(events: &[Event]) -> Result<RcDom, FormatError> {
                     }
                 }
 
-                // Create pre + code block
-                let mut attrs = vec![("class", "lex-verbatim")];
+                // Create pre + code block with highlight.js-compatible classes
+                let normalized_lang;
+                let mut pre_attrs = vec![("class", "lex-verbatim")];
                 let lang_string;
                 if let Some(ref lang) = verbatim_language {
                     lang_string = lang.clone();
-                    attrs.push(("data-language", &lang_string));
+                    pre_attrs.push(("data-language", &lang_string));
+                    normalized_lang = Some(format!("language-{}", normalize_language(lang)));
+                } else {
+                    normalized_lang = None;
                 }
 
-                let pre = create_element("pre", attrs);
-                let code = create_element("code", vec![]);
+                let pre = create_element("pre", pre_attrs);
+                let code_attrs = match normalized_lang {
+                    Some(ref class) => vec![("class", class.as_str())],
+                    None => vec![],
+                };
+                let code = create_element("code", code_attrs);
                 let text = create_text(&verbatim_content);
                 code.children.borrow_mut().push(text);
                 pre.children.borrow_mut().push(code);
@@ -611,11 +619,14 @@ fn wrap_in_document(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="lex-babel">
   <title>{escaped_title}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
   <style>
 {baseline_css}
 {theme_css}
 {custom_css}
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
 </head>
 <body>
 <div class="lex-document">
@@ -626,6 +637,25 @@ fn wrap_in_document(
     );
 
     Ok(html)
+}
+
+/// Map common language aliases to highlight.js class names
+fn normalize_language(lang: &str) -> &str {
+    match lang {
+        "js" => "javascript",
+        "ts" => "typescript",
+        "py" => "python",
+        "sh" => "bash",
+        "c++" | "cpp" => "cpp",
+        "c#" | "csharp" => "csharp",
+        "yml" => "yaml",
+        "rb" => "ruby",
+        "rs" => "rust",
+        "kt" => "kotlin",
+        "md" => "markdown",
+        "objc" | "obj-c" => "objectivec",
+        other => other,
+    }
 }
 
 /// Escape HTML special characters in text

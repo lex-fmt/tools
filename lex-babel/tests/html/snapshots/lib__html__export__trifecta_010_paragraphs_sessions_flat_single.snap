@@ -9,7 +9,10 @@ expression: snapshot_without_styles(&html)
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="lex-babel">
   <title>Paragraphs and Single Session Test {{paragraph}}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
   <style data-lex-snapshot="removed"></style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
 </head>
 <body>
 <div class="lex-document">

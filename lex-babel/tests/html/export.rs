@@ -115,9 +115,12 @@ fn test_code_block() {
     let html = lex_to_html(lex_src, HtmlTheme::Modern);
 
     assert!(html.contains("<pre class=\"lex-verbatim\" data-language=\"rust\">"));
-    assert!(html.contains("<code>"));
+    assert!(html.contains("<code class=\"language-rust\">"));
     assert!(html.contains("function hello()"));
     assert!(html.contains("return \"world\""));
+    // highlight.js CDN should be injected
+    assert!(html.contains("highlight.min.js"));
+    assert!(html.contains("hljs.highlightAll()"));
 }
 
 #[test]
@@ -207,6 +210,93 @@ fn test_anchor_reference_unchanged() {
 //     assert!(html.contains("priority=high"));
 //     assert!(html.contains("<!-- /lex:note -->"));
 // }
+
+// ============================================================================
+// SYNTAX HIGHLIGHTING TESTS
+// ============================================================================
+
+#[test]
+fn test_highlight_js_injected() {
+    let lex_src = "Hello world.\n";
+    let html = lex_to_html(lex_src, HtmlTheme::Modern);
+
+    assert!(
+        html.contains("highlight.min.js"),
+        "highlight.js script should be included"
+    );
+    assert!(
+        html.contains("hljs.highlightAll()"),
+        "hljs.highlightAll() should be called"
+    );
+    assert!(
+        html.contains("github.min.css"),
+        "highlight.js github theme should be linked"
+    );
+}
+
+#[test]
+fn test_code_block_language_class() {
+    let lex_src = "Example:\n\n    print(\"hello\")\n\n:: python ::\n";
+    let html = lex_to_html(lex_src, HtmlTheme::Modern);
+
+    assert!(
+        html.contains("<code class=\"language-python\">"),
+        "code should have language-python class"
+    );
+    assert!(
+        html.contains("data-language=\"python\""),
+        "pre should keep data-language attribute"
+    );
+}
+
+#[test]
+fn test_code_block_language_alias_js() {
+    let lex_src = "Example:\n\n    console.log(\"hello\")\n\n:: js ::\n";
+    let html = lex_to_html(lex_src, HtmlTheme::Modern);
+
+    assert!(
+        html.contains("<code class=\"language-javascript\">"),
+        "js should be normalized to javascript"
+    );
+}
+
+#[test]
+fn test_code_block_language_alias_py() {
+    let lex_src = "Example:\n\n    print(\"hello\")\n\n:: py ::\n";
+    let html = lex_to_html(lex_src, HtmlTheme::Modern);
+
+    assert!(
+        html.contains("<code class=\"language-python\">"),
+        "py should be normalized to python"
+    );
+}
+
+#[test]
+fn test_code_block_language_alias_ts() {
+    let lex_src = "Example:\n\n    const x: number = 1\n\n:: ts ::\n";
+    let html = lex_to_html(lex_src, HtmlTheme::Modern);
+
+    assert!(
+        html.contains("<code class=\"language-typescript\">"),
+        "ts should be normalized to typescript"
+    );
+}
+
+#[test]
+fn test_code_block_no_language() {
+    let lex_src = "Example:\n\n    some code here\n\n:: ::\n";
+    let html = lex_to_html(lex_src, HtmlTheme::Modern);
+
+    // No language class on code when no language specified
+    assert!(
+        html.contains("<code>") || html.contains("<code "),
+        "code element should exist"
+    );
+    assert!(
+        !html.contains("language-"),
+        "no language class when language is unspecified"
+    );
+}
 
 // ============================================================================
 // CSS AND THEMING TESTS

@@ -9,7 +9,10 @@ expression: snapshot_without_styles(&html)
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="lex-babel">
   <title>Kitchensink Test Document {{paragraph}}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
   <style data-lex-snapshot="removed"></style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
 </head>
 <body>
 <div class="lex-document">
@@ -24,12 +27,12 @@ First, a simple <em>definition</em> at the root level. {{paragraph}}</p><dl clas
 <div class="lex-content"><p class="lex-paragraph">This list item contains a nested paragraph. {{paragraph}}</p><ul class="lex-list"><li class="lex-list-item"><span class="seq_marker">-</span> And a nested list (Level 3). {{list-item}}
 </li><li class="lex-list-item"><span class="seq_marker">-</span> With its own items. {{list-item}}
 </li></ul></div></li><li class="lex-list-item"><span class="seq_marker">-</span> Another list item at level 2. {{list-item}}
-</li></ul></div></section><p class="lex-paragraph">A paragraph back at the first level of nesting. {{paragraph}}</p><pre class="lex-verbatim" data-language="javascript"><code>// This is a verbatim block with code.
+</li></ul></div></section><p class="lex-paragraph">A paragraph back at the first level of nesting. {{paragraph}}</p><pre class="lex-verbatim" data-language="javascript"><code class="language-javascript">// This is a verbatim block with code.
 function example() {
 return "lex";
 }</code></pre></div></section><section class="lex-session lex-session-2"><h2><span class="seq_marker">2.</span> Second Root Session {{session}}</h2><div class="lex-content"><p class="lex-paragraph">This session tests annotations with block content and marker-style verbatim blocks. {{paragraph}}</p><!-- lex:todo status="open" assignee="team" --><div class="lex-content"><p class="lex-paragraph">This is a block annotation. {{paragraph}}</p><p class="lex-paragraph">It contains a paragraph and a list. {{paragraph}}</p><ul class="lex-list"><li class="lex-list-item"><span class="seq_marker">-</span> Task 1 to complete. {{list-item}}
 </li><li class="lex-list-item"><span class="seq_marker">-</span> Task 2 to complete. {{list-item}}
-</li></ul></div><!-- /lex:todo --><pre class="lex-verbatim" data-language="image"><code></code></pre></div></section><p class="lex-paragraph">Final paragraph at the end of the document. {{paragraph}}</p>
+</li></ul></div><!-- /lex:todo --><pre class="lex-verbatim" data-language="image"><code class="language-image"></code></pre></div></section><p class="lex-paragraph">Final paragraph at the end of the document. {{paragraph}}</p>
 </div>
 </body>
 </html>

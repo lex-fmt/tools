@@ -240,6 +240,11 @@ h6+.lex-paragraph {
   font-family: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Courier New', monospace;
 }
 
+/* highlight.js applies its own background to <code>; keep the <pre> background as fallback */
+.lex-verbatim code.hljs {
+  background: transparent;
+}
+
 .lex-verbatim[data-language]::before {
   content: attr(data-language);
   display: block;
