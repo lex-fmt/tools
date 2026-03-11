@@ -142,7 +142,11 @@ fn collect_events_from_node<'a>(
             } else {
                 crate::ir::nodes::ListStyle::Bullet
             };
-            events.push(Event::StartList { ordered, style });
+            events.push(Event::StartList {
+                ordered,
+                style,
+                form: crate::ir::nodes::ListForm::Short,
+            });
 
             // Process list items
             for child in node.children() {

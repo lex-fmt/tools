@@ -649,6 +649,126 @@ fn assert_ast_equiv(expected: &[&ContentItem], actual: &[&ContentItem], lex_stri
 }
 
 // -----------------------------------------------------------------------------
+// Extended Marker Lists
+// -----------------------------------------------------------------------------
+
+fn numbered_list_strategy() -> impl Strategy<Value = List> {
+    prop::collection::vec("[a-zA-Z0-9]+( [a-zA-Z0-9]+)*", 2..5).prop_map(|texts| {
+        let mut list_container = ListContainer::empty();
+        for (i, text) in texts.iter().enumerate() {
+            list_container.push(ContentItem::ListItem(ListItem {
+                marker: TextContent::from_string(format!("{}.", i + 1), None),
+                text: vec![TextContent::from_string(format!("{text}\n"), None)],
+                children: GeneralContainer::empty(),
+                annotations: vec![],
+                location: Default::default(),
+            }));
+        }
+        let mut list = List::new(vec![]);
+        list.items = list_container;
+        list.marker = Some(SequenceMarker {
+            raw_text: TextContent::from_string("1.".to_string(), None),
+            style: DecorationStyle::Numerical,
+            separator: Separator::Period,
+            form: Form::Short,
+            location: Default::default(),
+        });
+        list
+    })
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(50))]
+
+    #[test]
+    fn test_round_trip_numbered_list(list in numbered_list_strategy()) {
+        let mut doc = Document::new();
+        doc.root.children = SessionContainer::from_typed(vec![
+            SessionContent::Element(ContentElement::List(list)),
+        ]);
+
+        let serialized = export(&doc).expect("Serialization should not fail");
+        let parsed = parse_document(&serialized).expect("Parsing should not fail");
+
+        let e_items: Vec<&ContentItem> = doc.root.children.iter().collect();
+        let a_items: Vec<&ContentItem> = parsed.root.children.iter().collect();
+        assert_ast_equiv(&e_items, &a_items, &serialized);
+    }
+
+    #[test]
+    fn test_format_idempotency_numbered_list(list in numbered_list_strategy()) {
+        let mut doc = Document::new();
+        doc.root.children = SessionContainer::from_typed(vec![
+            SessionContent::Element(ContentElement::List(list)),
+        ]);
+
+        let formatted_1 = serialize_to_lex(&doc).expect("First serialization should not fail");
+        let parsed = parse_document(&formatted_1).expect("Parsing formatted output should not fail");
+        let formatted_2 = serialize_to_lex(&parsed).expect("Second serialization should not fail");
+        assert_eq!(
+            formatted_1, formatted_2,
+            "Formatting is not idempotent!\nFirst:\n{formatted_1}\nSecond:\n{formatted_2}"
+        );
+    }
+}
+
+// IR round-trip tests: Lex source → IR → Lex AST → serialize → parse → compare
+
+#[test]
+fn test_ir_round_trip_simple_list() {
+    let source = "- First item\n- Second item\n";
+    let doc = parse_document(source).expect("parse");
+    let ir = lex_babel::to_ir(&doc);
+    let back = lex_babel::from_ir(&ir);
+    let reserialized = export(&back).expect("export");
+    let reparsed = parse_document(&reserialized).expect("reparse");
+    let final_text = export(&reparsed).expect("final export");
+    assert_eq!(reserialized, final_text, "IR round-trip not idempotent");
+}
+
+#[test]
+fn test_ir_round_trip_numbered_list() {
+    let source = "1. First item\n2. Second item\n3. Third item\n";
+    let doc = parse_document(source).expect("parse");
+    let ir = lex_babel::to_ir(&doc);
+    let back = lex_babel::from_ir(&ir);
+    let reserialized = export(&back).expect("export");
+    let reparsed = parse_document(&reserialized).expect("reparse");
+    let final_text = export(&reparsed).expect("final export");
+    assert_eq!(reserialized, final_text, "IR round-trip not idempotent");
+}
+
+#[test]
+fn test_ir_preserves_list_form() {
+    use lex_babel::ir::nodes::ListForm;
+
+    // Extended form flat list
+    let source = "1.2.3 Item one\n1.2.4 Item two\n";
+    let doc = parse_document(source).expect("parse");
+    let ir = lex_babel::to_ir(&doc);
+
+    // Check that the IR preserves the form
+    fn find_list_form(node: &lex_babel::ir::nodes::DocNode) -> Option<ListForm> {
+        match node {
+            lex_babel::ir::nodes::DocNode::List(list) => Some(list.form),
+            lex_babel::ir::nodes::DocNode::Heading(h) => h.children.iter().find_map(find_list_form),
+            lex_babel::ir::nodes::DocNode::Document(d) => {
+                d.children.iter().find_map(find_list_form)
+            }
+            _ => None,
+        }
+    }
+
+    let doc_node = lex_babel::ir::nodes::DocNode::Document(ir);
+    let form = find_list_form(&doc_node);
+    assert_eq!(
+        form,
+        Some(ListForm::Extended),
+        "IR should preserve Form::Extended"
+    );
+}
+
+// -----------------------------------------------------------------------------
 // Formatting Idempotency (Priority 4)
 // -----------------------------------------------------------------------------
 // Property: format(parse(format(ast))) == format(ast)

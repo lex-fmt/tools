@@ -1,6 +1,6 @@
 //! Defines the flat event stream representation of a document.
 
-use crate::ir::nodes::{InlineContent, ListStyle};
+use crate::ir::nodes::{InlineContent, ListForm, ListStyle};
 
 /// Represents a single event in the document stream.
 ///
@@ -21,6 +21,7 @@ pub enum Event {
     StartList {
         ordered: bool,
         style: ListStyle,
+        form: ListForm,
     },
     EndList,
     StartListItem,

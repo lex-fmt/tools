@@ -7,8 +7,8 @@ use lex_core::lex::ast::elements::{
 use lex_core::lex::ast::TextContent;
 
 use super::nodes::{
-    Annotation, Definition, DocNode, Document, Heading, InlineContent, List, ListItem, ListStyle,
-    Paragraph, Table, TableCell, TableCellAlignment, TableRow, Verbatim,
+    Annotation, Definition, DocNode, Document, Heading, InlineContent, List, ListForm, ListItem,
+    ListStyle, Paragraph, Table, TableCell, TableCellAlignment, TableRow, Verbatim,
 };
 
 /// Converts a lex document to the IR.
@@ -265,10 +265,21 @@ fn from_lex_list(list: &LexList, level: usize) -> DocNode {
     };
     let ordered = style.is_ordered();
 
+    // Detect form from the list's SequenceMarker
+    let form = list
+        .marker
+        .as_ref()
+        .map(|m| match m.form {
+            lex_core::lex::ast::elements::sequence_marker::Form::Extended => ListForm::Extended,
+            lex_core::lex::ast::elements::sequence_marker::Form::Short => ListForm::Short,
+        })
+        .unwrap_or(ListForm::Short);
+
     DocNode::List(List {
         items,
         ordered,
         style,
+        form,
     })
 }
 

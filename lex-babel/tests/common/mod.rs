@@ -30,6 +30,7 @@ fn create_test_tree() -> DocNode {
                         ],
                         ordered: false,
                         style: ListStyle::Bullet,
+                        form: ListForm::Short,
                     }),
                 ],
             }),
@@ -74,6 +75,7 @@ fn test_event_stream_generation() {
         Event::StartList {
             ordered: false,
             style: ListStyle::Bullet,
+            form: ListForm::Short,
         },
         Event::StartListItem,
         Event::Inline(InlineContent::Text("Item 1".to_string())),

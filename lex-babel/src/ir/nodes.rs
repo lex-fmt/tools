@@ -61,12 +61,22 @@ impl ListStyle {
     }
 }
 
+/// Whether list markers use short or extended (hierarchical) form.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ListForm {
+    /// Short form: single level marker (e.g., `1.`, `a)`)
+    Short,
+    /// Extended form: multi-level nested index (e.g., `1.2.3`, `I.a.2`)
+    Extended,
+}
+
 /// Represents a list of items.
 #[derive(Debug, Clone, PartialEq)]
 pub struct List {
     pub items: Vec<ListItem>,
     pub ordered: bool,
     pub style: ListStyle,
+    pub form: ListForm,
 }
 
 /// Represents an item in a list.

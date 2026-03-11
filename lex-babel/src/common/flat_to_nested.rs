@@ -105,6 +105,7 @@ enum StackNode {
         items: Vec<ListItem>,
         ordered: bool,
         style: ListStyle,
+        form: ListForm,
     },
     ListItem {
         content: Vec<InlineContent>,
@@ -160,10 +161,12 @@ impl StackNode {
                 items,
                 ordered,
                 style,
+                form,
             } => DocNode::List(List {
                 items,
                 ordered,
                 style,
+                form,
             }),
             StackNode::ListItem { content, children } => {
                 DocNode::ListItem(ListItem { content, children })
@@ -613,11 +616,16 @@ pub fn events_to_tree(events: &[Event]) -> Result<Document, ConversionError> {
                 })?;
             }
 
-            Event::StartList { ordered, style } => {
+            Event::StartList {
+                ordered,
+                style,
+                form,
+            } => {
                 stack.push(StackNode::List {
                     items: vec![],
                     ordered: *ordered,
                     style: *style,
+                    form: *form,
                 });
             }
 
@@ -992,6 +1000,7 @@ mod tests {
             Event::StartList {
                 ordered: false,
                 style: ListStyle::Bullet,
+                form: ListForm::Short,
             },
             Event::StartListItem,
             Event::Inline(InlineContent::Text("Item 1".to_string())),
@@ -1112,6 +1121,7 @@ mod tests {
             Event::StartList {
                 ordered: false,
                 style: ListStyle::Bullet,
+                form: ListForm::Short,
             },
             Event::StartListItem,
             Event::Inline(InlineContent::Text("Item".to_string())),
@@ -1251,6 +1261,7 @@ mod tests {
                         ],
                         ordered: false,
                         style: ListStyle::Bullet,
+                        form: ListForm::Short,
                     }),
                     DocNode::Definition(Definition {
                         term: vec![InlineContent::Text("Term".to_string())],

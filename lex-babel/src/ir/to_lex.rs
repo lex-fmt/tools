@@ -208,7 +208,21 @@ fn to_lex_list_item(item: &ListItem) -> LexContentItem {
 
 /// Converts an IR ListItem to a Lex ListItem struct.
 fn to_lex_list_item_struct(item: &ListItem) -> LexListItem {
-    let text = inline_content_to_text(&item.content);
+    // Extract marker from inline content if present
+    let marker = item
+        .content
+        .iter()
+        .find_map(|ic| {
+            if let InlineContent::Marker(m) = ic {
+                Some(m.clone())
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| "-".to_string());
+
+    // Build text from non-marker inline content
+    let text = inline_content_to_text_skip_marker(&item.content);
 
     let mut child_items = Vec::new();
     for child in &item.children {
@@ -216,7 +230,7 @@ fn to_lex_list_item_struct(item: &ListItem) -> LexListItem {
     }
 
     let children = to_content_elements(child_items);
-    LexListItem::with_content("-".to_string(), text, children)
+    LexListItem::with_content(marker, text, children)
 }
 
 /// Converts an IR Definition to a Lex Definition.
@@ -278,6 +292,52 @@ fn to_lex_annotation(ann: &Annotation, level: usize) -> LexContentItem {
 
     let children = to_content_elements(child_items);
     LexContentItem::Annotation(LexAnnotation::new(label, parameters, children))
+}
+
+/// Converts IR inline content to plain text, skipping Marker elements and
+/// the whitespace immediately following them.
+fn inline_content_to_text_skip_marker(content: &[InlineContent]) -> String {
+    let mut skip_next_space = false;
+    let mut parts = Vec::new();
+    for inline in content {
+        if matches!(inline, InlineContent::Marker(_)) {
+            skip_next_space = true;
+            continue;
+        }
+        if skip_next_space {
+            skip_next_space = false;
+            if let InlineContent::Text(t) = inline {
+                if t == " " {
+                    continue;
+                }
+            }
+        }
+        parts.push(inline_to_text(inline));
+    }
+    parts.join("")
+}
+
+fn inline_to_text(inline: &InlineContent) -> String {
+    match inline {
+        InlineContent::Text(text) => text.clone(),
+        InlineContent::Bold(children) => {
+            format!("*{}*", inline_content_to_text(children))
+        }
+        InlineContent::Italic(children) => {
+            format!("_{}_", inline_content_to_text(children))
+        }
+        InlineContent::Code(code) => format!("`{code}`"),
+        InlineContent::Math(math) => format!("#{math}#"),
+        InlineContent::Reference(ref_text) => format!("[{ref_text}]"),
+        InlineContent::Marker(marker) => marker.clone(),
+        InlineContent::Image(image) => {
+            let mut text = format!("![{}]({})", image.alt, image.src);
+            if let Some(title) = &image.title {
+                text.push_str(&format!(" \"{title}\""));
+            }
+            text
+        }
+    }
 }
 
 /// Converts IR inline content to plain text string.
@@ -418,6 +478,7 @@ mod tests {
             ],
             ordered: false,
             style: ListStyle::Bullet,
+            form: ListForm::Short,
         };
 
         let lex_item = to_lex_list(&ir_list);

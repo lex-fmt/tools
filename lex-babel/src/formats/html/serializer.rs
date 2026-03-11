@@ -165,7 +165,7 @@ fn build_html_dom(events: &[Event]) -> Result<RcDom, FormatError> {
                 })?;
             }
 
-            Event::StartList { ordered, style } => {
+            Event::StartList { ordered, style, .. } => {
                 current_heading = None;
                 let tag = if *ordered { "ol" } else { "ul" };
                 // For ordered lists, set the HTML type attribute to preserve decoration style
